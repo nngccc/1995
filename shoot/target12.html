@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="af">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S.A. Nasionale Bisley Skiet</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: monospace;
+  color: #fff;
+}
+#game-container {
+  position: relative;
+  width: 640px;
+  height: 480px;
+}
+canvas {
+  display: block;
+  border: 1px solid #333;
+  cursor: none;
+}
+.input-overlay {
+  display: none;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 80, 0.95);
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+.input-overlay.active { display: flex; }
+.input-overlay label {
+  font-size: 18px;
+  margin-bottom: 16px;
+  color: #fff;
+  font-family: serif;
+}
+.input-overlay input {
+  font-size: 18px;
+  padding: 8px 16px;
+  background: #060;
+  color: #fff;
+  border: 2px solid #0a0;
+  outline: none;
+  font-family: monospace;
+  text-align: center;
+  width: 240px;
+}
+.input-overlay input:focus { border-color: #0f0; }
+.input-overlay .hint {
+  font-size: 12px;
+  color: #888;
+  margin-top: 8px;
+}
+</style>
+</head>
+<body>
+<div id="game-container">
+  <canvas id="c" width="640" height="480"></canvas>
+  <div class="input-overlay" id="overlay-name">
+    <label>TIK ASSEBLIEF U NAAM IN</label>
+    <input type="text" id="input-name" maxlength="15" placeholder="Naam">
+    <div class="hint">Press Enter to confirm</div>
+  </div>
+  <div class="input-overlay" id="overlay-team">
+    <label>TIK ASSEBLIEF U SPAN IN</label>
+    <input type="text" id="input-team" maxlength="6" placeholder="Span">
+    <div class="hint">Press Enter to confirm</div>
+  </div>
+  <div class="input-overlay" id="overlay-comp">
+    <label>TIK ASSEBLIEF DIE KOMPETISIE IN</label>
+    <input type="text" id="input-comp" maxlength="11" placeholder="Kompetisie">
+    <div class="hint">Press Enter to confirm</div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// S.A. NASIONALE BISLEY SKIET (0.22" KALIBER) - Web Version
+// Original: Nico Gerber, 1996 (Turbo Pascal 7.0)
+// Web port: 2026
+// ============================================================
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// --- Constants (from Pascal source) ---
+const RONTES = 13;        // Total shots
+const OG = 430;           // Bottom boundary
+const BG = 55;            // Top boundary
+const LG = 50;            // Left boundary
+const RG = 582;           // Right boundary
+const GR = 55;            // Crosshair circle radius
+const FL = 5;             // Flinch/drift amount
+const XD = 10;            // Arrow key move X
+const YW_MOVE = 10;       // Arrow key move Y
+const XJ = 50;            // WASD jump X
+const YJ = 50;            // WASD jump Y
+const SK = 5;             // Shot dot radius
+
+// Target positions (10 scoring targets + 1 practice)
+const TARGETS = [
+  { x: 90,  y: 80,  label: '1' },
+  { x: 240, y: 80,  label: '2' },
+  { x: 390, y: 80,  label: '3' },
+  { x: 540, y: 80,  label: '4' },
+  { x: 170, y: 220, label: '5' },
+  // index 5 is practice target (SLEGS PROEFSKOTE)
+  { x: 320, y: 220, label: '' },
+  { x: 470, y: 220, label: '6' },
+  { x: 90,  y: 350, label: '7' },
+  { x: 240, y: 350, label: '8' },
+  { x: 390, y: 350, label: '9' },
+  { x: 540, y: 350, label: '10' },
+];
+
+// Scoring target indices (0-based, excluding practice target at index 5)
+const SCORING_TARGETS = [0,1,2,3,4,6,7,8,9,10];
+
+// Colors (EGA palette mapped to CSS)
+const COL = {
+  bg: '#000',        // KLEURB = 6 (brown) -> dark for modern look
+  targetFill: '#808000', // KLEURK = 8 -> olive/dark yellow for targets
+  crosshair: '#fff', // KLEURC = 15
+  shot: '#a00',      // KLEURS = 4 (red)
+  text1: '#0a0',     // KLEURX = 2 (green)
+  text2: '#ff0',     // KLEURY = 14 (yellow)
+  ring: '#000',      // Ring color on targets
+};
+
+// --- Game State ---
+let state = 'drawrose';    // Current game state
+let stateTimer = 0;        // Timer for timed states
+let naam = '';
+let span = '';
+let komp = '';
+let telling = 0;           // Score
+let aantal = 1;            // Current shot number (1-based)
+let cx = 320;              // Aim center X (moved by keys)
+let cy = 220;              // Aim center Y (moved by keys)
+let driftOx = 0;           // Drift offset from center X
+let driftOy = 0;           // Drift offset from center Y
+let skotex = new Array(RONTES + 1).fill(0);
+let skotey = new Array(RONTES + 1).fill(0);
+let keys = {};             // Currently pressed keys
+let lastFrameTime = 0;
+
+// Smooth drift state
+let driftVx = 0;          // Current drift velocity X
+let driftVy = 0;          // Current drift velocity Y
+const DRIFT_MAX_SPEED = 1.2;   // Max drift speed (px per frame)
+const DRIFT_ACCEL = 0.15;      // How quickly drift direction changes
+
+// Heartbeat pulse effect
+const HEART_BPM = 60;
+const HEART_PERIOD = 60000 / HEART_BPM; // ms per beat
+const HEART_AMPLITUDE = 2.5;            // px displacement per pulse
+let heartPhase = 0;                     // accumulated phase in ms
+
+// Intro animation state
+let introStep = 0;
+let introTimer = 0;
+
+// DrawRose animation state
+let drawroseStep = 0;
+let drawroseTimer = 0;
+let drawroseLetterIndex = 0;
+
+// Results state
+let scorecardCountdown = 0;
+let scorecardTimer = 0;
+
+// Audio
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playTone(freq, duration) {
+  ensureAudio();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.frequency.value = freq;
+  gain.gain.value = 0.15;
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration / 1000);
+}
+
+function playFire() {
+  ensureAudio();
+  const now = audioCtx.currentTime;
+  const osc1 = audioCtx.createOscillator();
+  const gain1 = audioCtx.createGain();
+  osc1.connect(gain1);
+  gain1.connect(audioCtx.destination);
+  osc1.frequency.value = 700;
+  gain1.gain.value = 0.15;
+  osc1.start(now);
+  osc1.stop(now + 0.05);
+
+  const osc2 = audioCtx.createOscillator();
+  const gain2 = audioCtx.createGain();
+  osc2.connect(gain2);
+  gain2.connect(audioCtx.destination);
+  osc2.frequency.value = 200;
+  gain2.gain.value = 0.15;
+  osc2.start(now + 0.07);
+  osc2.stop(now + 0.17);
+}
+
+function playBump() {
+  playTone(50, 30);
+}
+
+function playBoundary() {
+  playTone(200, 50);
+}
+
+// --- Drawing Functions ---
+
+function drawTarget(x, y) {
+  // Filled circle (target body)
+  ctx.fillStyle = COL.targetFill;
+  ctx.beginPath();
+  ctx.arc(x, y, 50, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Rings at radii 5, 15, 25, 35
+  ctx.strokeStyle = COL.ring;
+  ctx.lineWidth = 1;
+  for (const r of [5, 15, 25, 35]) {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+function drawCrosshair(x, y) {
+  ctx.strokeStyle = COL.crosshair;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(x, y, GR, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Crosshair lines
+  const len = 10;
+  ctx.beginPath();
+  ctx.moveTo(x - GR - len, y);
+  ctx.lineTo(x - GR + len, y);
+  ctx.moveTo(x + GR - len, y);
+  ctx.lineTo(x + GR + len, y);
+  ctx.moveTo(x, y - GR - len);
+  ctx.lineTo(x, y - GR + len);
+  ctx.moveTo(x, y + GR - len);
+  ctx.lineTo(x, y + GR + len);
+  ctx.stroke();
+
+  // Center dot
+  ctx.fillStyle = COL.crosshair;
+  ctx.beginPath();
+  ctx.arc(x, y, 2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function heartbeatWaveform(t) {
+  // t is 0..1 position within one heartbeat cycle
+  // Returns -1..1 ECG-like waveform
+  if (t < 0.05) return 0;                                          // baseline
+  if (t < 0.08) return 0.15 * Math.sin((t - 0.05) / 0.03 * Math.PI); // P wave
+  if (t < 0.12) return 0;                                          // PR segment
+  if (t < 0.14) return -0.15;                                      // Q dip
+  if (t < 0.18) return Math.sin((t - 0.14) / 0.04 * Math.PI);     // R peak (tall)
+  if (t < 0.21) return -0.25;                                      // S dip
+  if (t < 0.25) return -0.25 * (1 - (t - 0.21) / 0.04);           // return to baseline
+  if (t < 0.35) return 0;                                          // ST segment
+  if (t < 0.45) return 0.2 * Math.sin((t - 0.35) / 0.10 * Math.PI); // T wave
+  return 0;                                                         // baseline
+}
+
+function drawHeartbeatChart(x, y, w, h) {
+  // Background
+  ctx.fillStyle = '#000';
+  ctx.fillRect(x, y - h / 2, w, h);
+  ctx.strokeStyle = '#300';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y - h / 2, w, h);
+
+  // Draw the scrolling ECG trace
+  const now = heartPhase;
+  ctx.strokeStyle = '#f00';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  const steps = w;
+  for (let i = 0; i < steps; i++) {
+    // Each pixel = a slice of time; show ~2 beats worth
+    const timeSpan = HEART_PERIOD * 2;
+    const tMs = now - timeSpan + (i / steps) * timeSpan;
+    const beatT = ((tMs % HEART_PERIOD) + HEART_PERIOD) % HEART_PERIOD / HEART_PERIOD;
+    const val = heartbeatWaveform(beatT);
+    const px = x + i;
+    const py = y - val * (h / 2) * 0.85;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+}
+
+function drawShots() {
+  ctx.fillStyle = COL.shot;
+  for (let i = 1; i <= RONTES; i++) {
+    if (skotex[i] !== 0 || skotey[i] !== 0) {
+      ctx.beginPath();
+      ctx.arc(skotex[i], skotey[i], SK, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawScorecard() {
+  ctx.fillStyle = COL.bg;
+  ctx.fillRect(0, 0, 640, 480);
+
+  // Draw all targets
+  for (let i = 0; i < TARGETS.length; i++) {
+    const t = TARGETS[i];
+    drawTarget(t.x, t.y);
+
+    // Label
+    if (t.label) {
+      ctx.fillStyle = COL.crosshair;
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(t.label, t.x, t.y - 60);
+    }
+  }
+
+  // Practice target label
+  ctx.fillStyle = COL.crosshair;
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('SLEGS PROEFSKOTE', 320, 285);
+
+  // Heartbeat chart
+  drawHeartbeatChart(220, 432, 200, 20);
+
+  // S.A.N.S.S.U. 01
+  ctx.fillStyle = COL.crosshair;
+  ctx.font = 'bold 20px serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('S.A.N.S.S.U. 01', 320, 460);
+
+  // Labels
+  ctx.font = '11px serif';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = COL.crosshair;
+  ctx.fillText('NAAM ........................', 40, 460);
+  ctx.fillText('KOMP ..................', 450, 460);
+  ctx.fillText('TOTAAL', 40, 220);
+  ctx.fillText('......', 40, 235);
+  ctx.fillText('SPAN', 560, 220);
+  ctx.fillText('.........', 555, 235);
+
+  // User data
+  ctx.fillStyle = '#00a';
+  ctx.font = '12px monospace';
+  ctx.fillText(naam, 100, 475);
+  ctx.fillText(komp, 510, 475);
+  ctx.fillText(span, 558, 248);
+
+  // Score
+  ctx.fillStyle = '#0a0';
+  ctx.fillText(String(telling), 42, 248);
+
+  // Draw shots on card
+  drawShots();
+
+  // Shot counter
+  ctx.fillStyle = '#fff';
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'right';
+  const shotsUsed = Math.min(aantal - 1, RONTES);
+  ctx.fillText(`Skote: ${shotsUsed}/${RONTES}`, 630, 15);
+  ctx.textAlign = 'left';
+}
+
+function drawIntroScreen() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, 640, 480);
+
+  ctx.textAlign = 'center';
+
+  ctx.fillStyle = '#0a0';
+  ctx.font = '22px serif';
+  ctx.fillText('SUID-AFRIKAANSE', 340, 75);
+
+  ctx.fillStyle = '#ff0';
+  ctx.font = '24px serif';
+  ctx.fillText('NASIONALE', 320, 110);
+
+  ctx.fillStyle = '#a00';
+  ctx.font = 'bold 30px serif';
+  ctx.fillText('BISLEY SKIET 1995', 320, 160);
+
+  ctx.fillStyle = '#00a';
+  ctx.font = '22px serif';
+  ctx.fillText('(0.22" KALIBER)', 320, 195);
+
+  // Three demo targets
+  for (const tx of [170, 320, 470]) {
+    drawTarget(tx, 275);
+  }
+
+  // Demo shots (animated)
+  ctx.fillStyle = '#a00';
+  if (introStep >= 1) {
+    ctx.beginPath();
+    ctx.arc(340, 255, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (introStep >= 2) {
+    ctx.beginPath();
+    ctx.arc(320, 260, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (introStep >= 3) {
+    ctx.beginPath();
+    ctx.arc(320, 275, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '14px sans-serif';
+  ctx.fillText('PROGRAMERING - NICO GERBER', 320, 420);
+
+  ctx.fillStyle = '#888';
+  ctx.font = '12px sans-serif';
+  ctx.fillText('Druk [6] vir Help  |  Press any key to start', 320, 450);
+
+  ctx.textAlign = 'left';
+}
+
+function drawDrawrose() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, 640, 480);
+  ctx.textAlign = 'center';
+
+  if (drawroseStep === 0) {
+    // "LCC PRODUKSIES" + rose drawing
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px serif';
+    ctx.fillText('LCC PRODUKSIES', 320, 120);
+
+    // Simple rose/flower shape
+    ctx.fillStyle = '#a00';
+    ctx.beginPath();
+    ctx.ellipse(320, 240, 40, 70, 0, Math.PI, 0);
+    ctx.fill();
+
+    ctx.fillStyle = '#0a0';
+    ctx.beginPath();
+    ctx.ellipse(320, 360, 30, 30, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Stem
+    ctx.strokeStyle = '#0a0';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(320, 360);
+    ctx.lineTo(320, 420);
+    ctx.stroke();
+
+    // Leaves
+    ctx.fillStyle = '#0a0';
+    ctx.beginPath();
+    ctx.ellipse(305, 390, 15, 5, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(335, 390, 15, 5, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Flame tips
+    ctx.fillStyle = '#ff0';
+    ctx.beginPath();
+    ctx.arc(320, 170, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(300, 170, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(340, 170, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#fff';
+    ctx.font = '22px serif';
+    ctx.fillText('. . .  BIED AAN  . . .', 320, 455);
+  } else if (drawroseStep === 1) {
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px serif';
+    ctx.fillText('GEPROGRAMEER', 320, 180);
+    ctx.fillText('IN', 320, 250);
+
+    const tpText = 'TURBO PASCAL 7.0';
+    const shown = tpText.substring(0, drawroseLetterIndex);
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px serif';
+    ctx.fillText(shown, 320, 320);
+  }
+
+  ctx.textAlign = 'left';
+}
+
+function drawHelp() {
+  // Dark overlay
+  ctx.fillStyle = 'rgba(0, 0, 100, 0.95)';
+  ctx.fillRect(130, 80, 380, 340);
+
+  ctx.fillStyle = '#0a0';
+  ctx.font = '12px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('HELP - SA NASIONALE BISLEY SKIET .22', 145, 105);
+
+  ctx.fillStyle = '#ff0';
+  ctx.fillText('SLEUTELS / KEYS', 145, 130);
+
+  const lines1 = [
+    ['UP    x Medium  = [\u2191]', 'Arrow Up'],
+    ['DOWN  x Medium  = [\u2193]', 'Arrow Down'],
+    ['LEFT  x Medium  = [\u2190]', 'Arrow Left'],
+    ['RIGHT x Medium  = [\u2192]', 'Arrow Right'],
+  ];
+  let ly = 150;
+  ctx.fillStyle = '#ff0';
+  for (const [txt] of lines1) {
+    ctx.fillText(txt, 145, ly);
+    ly += 14;
+  }
+
+  ly += 6;
+  const lines2 = [
+    'UP    x Maximum = [W]',
+    'DOWN  x Maximum = [S]',
+    'LEFT  x Maximum = [A]',
+    'RIGHT x Maximum = [D]',
+  ];
+  for (const txt of lines2) {
+    ctx.fillText(txt, 145, ly);
+    ly += 14;
+  }
+
+  ly += 6;
+  ctx.fillText('SKIET / SHOOT   = [ENTER / SPACE]', 145, ly); ly += 14;
+  ctx.fillText('EXIT            = [ESC]', 145, ly); ly += 20;
+
+  ctx.fillStyle = '#fff';
+  ctx.fillText('FUNKSIES / FUNCTIONS', 145, ly); ly += 20;
+
+  ctx.fillText('NAAM / NAME     = [1]', 145, ly); ly += 14;
+  ctx.fillText('SPAN / TEAM     = [2]', 145, ly); ly += 14;
+  ctx.fillText('KOMPETISIE      = [3]', 145, ly); ly += 14;
+  ctx.fillText('TELLING / SCORE = [4]', 145, ly); ly += 14;
+  ly += 6;
+  ctx.fillText('BEGIN OOR / RESTART = [5]', 145, ly); ly += 14;
+  ctx.fillText('HELP                = [6]', 145, ly); ly += 20;
+
+  ctx.fillStyle = '#888';
+  ctx.font = '11px monospace';
+  ctx.fillText('Press any key to close', 145, ly);
+
+  ctx.textAlign = 'left';
+}
+
+function drawResults() {
+  const afstand = (telling === 100) ? 220 : 260;
+
+  ctx.fillStyle = 'rgba(0, 0, 100, 0.95)';
+  ctx.fillRect(130, 80, 380, 340);
+
+  ctx.textAlign = 'center';
+
+  ctx.fillStyle = COL.crosshair;
+  ctx.font = '22px serif';
+  ctx.fillText('JOU RONTES IS KLAAR!', 320, 130);
+
+  ctx.fillStyle = COL.text1;
+  ctx.font = '22px serif';
+  ctx.fillText('TELLING', 300, 175);
+
+  ctx.fillStyle = COL.text2;
+  ctx.font = 'bold 64px serif';
+  ctx.fillText(String(telling), afstand, 260);
+  ctx.font = 'bold 48px serif';
+  ctx.fillText('%', 400, 250);
+
+  ctx.fillStyle = COL.shot;
+  ctx.font = '16px serif';
+  ctx.fillText('KEUSES', 320, 300);
+  ctx.fillText('[9]   KYK KAART (10s)', 320, 330);
+  ctx.fillText('[5]   SKIET WEER', 320, 355);
+  ctx.fillText('[ESC] EXIT', 320, 380);
+
+  ctx.textAlign = 'left';
+}
+
+// --- Score Calculation (port of SCORE procedure) ---
+function calculateScore() {
+  telling = 0;
+  for (const ti of SCORING_TARGETS) {
+    const tx = TARGETS[ti].x;
+    const ty = TARGETS[ti].y;
+    let minDist = 60;
+
+    for (let s = 1; s <= RONTES; s++) {
+      if (skotex[s] === 0 && skotey[s] === 0) continue;
+      const dx = Math.abs(tx - skotex[s]);
+      const dy = Math.abs(ty - skotey[s]);
+      const dist = Math.round(Math.sqrt(dx * dx + dy * dy));
+      if (dist < minDist) minDist = dist;
+    }
+
+    if (minDist <= 11) telling += 10;
+    else if (minDist <= 21) telling += 9;
+    else if (minDist <= 30) telling += 8;
+    else if (minDist <= 40) telling += 7;
+    else if (minDist <= 56) telling += 6;
+    // else 0
+  }
+}
+
+// --- Input Handling ---
+function showOverlay(id, inputId) {
+  const overlay = document.getElementById(id);
+  const input = document.getElementById(inputId);
+  overlay.classList.add('active');
+  input.focus();
+  input.value = '';
+}
+
+function hideOverlay(id) {
+  document.getElementById(id).classList.remove('active');
+  canvas.focus();
+}
+
+// Overlay input handlers
+document.getElementById('input-name').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    naam = document.getElementById('input-name').value;
+    hideOverlay('overlay-name');
+    state = 'shooting';
+  } else if (e.key === 'Escape') {
+    hideOverlay('overlay-name');
+    state = 'shooting';
+  }
+});
+
+document.getElementById('input-team').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    span = document.getElementById('input-team').value;
+    hideOverlay('overlay-team');
+    state = 'shooting';
+  } else if (e.key === 'Escape') {
+    hideOverlay('overlay-team');
+    state = 'shooting';
+  }
+});
+
+document.getElementById('input-comp').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    komp = document.getElementById('input-comp').value;
+    hideOverlay('overlay-comp');
+    state = 'shooting';
+  } else if (e.key === 'Escape') {
+    hideOverlay('overlay-comp');
+    state = 'shooting';
+  }
+});
+
+// Main keyboard handler
+document.addEventListener('keydown', (e) => {
+  if (state === 'input_name' || state === 'input_team' || state === 'input_comp') return;
+
+  keys[e.key] = true;
+
+  if (state === 'drawrose') {
+    state = 'intro';
+    introStep = 0;
+    introTimer = performance.now();
+    return;
+  }
+
+  if (state === 'intro') {
+    if (e.key === '6') {
+      state = 'help';
+    } else {
+      state = 'shooting';
+    }
+    return;
+  }
+
+  if (state === 'help') {
+    state = 'shooting';
+    return;
+  }
+
+  if (state === 'results') {
+    if (e.key === '9') {
+      state = 'scorecard';
+      scorecardCountdown = 9;
+      scorecardTimer = performance.now();
+    } else if (e.key === '5') {
+      resetGame();
+      state = 'shooting';
+    } else if (e.key === 'Escape') {
+      resetGame();
+      state = 'intro';
+      introStep = 0;
+      introTimer = performance.now();
+    }
+    return;
+  }
+
+  if (state === 'scorecard') {
+    // Any key returns to results
+    state = 'results';
+    return;
+  }
+
+  if (state === 'shooting') {
+    e.preventDefault();
+    const key = e.key;
+
+    switch (key) {
+      case 'ArrowUp':    cy -= YW_MOVE; break;
+      case 'ArrowDown':  cy += YW_MOVE; break;
+      case 'ArrowLeft':  cx -= XD; break;
+      case 'ArrowRight': cx += XD; break;
+      case 'w': case 'W': cy -= YJ; break;
+      case 's': case 'S': cy += YJ; break;
+      case 'a': case 'A': cx -= XJ; break;
+      case 'd': case 'D': cx += XJ; break;
+      case 'Enter':
+      case ' ':
+        if (aantal <= RONTES) {
+          skotex[aantal] = cx + driftOx;
+          skotey[aantal] = cy + driftOy;
+          playFire();
+          aantal++;
+          calculateScore();
+          if (aantal === RONTES + 1) {
+            state = 'results';
+          }
+        }
+        break;
+      case '1':
+        state = 'input_name';
+        showOverlay('overlay-name', 'input-name');
+        break;
+      case '2':
+        state = 'input_team';
+        showOverlay('overlay-team', 'input-team');
+        break;
+      case '3':
+        state = 'input_comp';
+        showOverlay('overlay-comp', 'input-comp');
+        break;
+      case '4':
+        calculateScore();
+        break;
+      case '5':
+        resetGame();
+        break;
+      case '6':
+        state = 'help';
+        break;
+      case 'Escape':
+        state = 'intro';
+        introStep = 0;
+        introTimer = performance.now();
+        break;
+    }
+
+    // Boundary clamping on center point
+    let bounced = false;
+    if (cx >= RG) { cx = RG - 1; bounced = true; }
+    if (cx <= LG) { cx = LG + 1; bounced = true; }
+    if (cy >= OG) { cy = OG - 1; bounced = true; }
+    if (cy <= BG) { cy = BG + 1; bounced = true; }
+    if (bounced) playBoundary();
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  delete keys[e.key];
+});
+
+function resetGame() {
+  aantal = 1;
+  telling = 0;
+  cx = 320;
+  cy = 220;
+  driftOx = 0;
+  driftOy = 0;
+  driftVx = 0;
+  driftVy = 0;
+  skotex = new Array(RONTES + 1).fill(0);
+  skotey = new Array(RONTES + 1).fill(0);
+}
+
+// --- Game Loop ---
+function gameLoop(timestamp) {
+  if (!lastFrameTime) lastFrameTime = timestamp;
+  const dt = timestamp - lastFrameTime;
+  lastFrameTime = timestamp;
+
+  switch (state) {
+    case 'drawrose':
+      updateDrawrose(timestamp);
+      drawDrawrose();
+      break;
+
+    case 'intro':
+      updateIntro(timestamp);
+      drawIntroScreen();
+      break;
+
+    case 'shooting':
+    case 'input_name':
+    case 'input_team':
+    case 'input_comp':
+      // Smooth crosshair drift (hand shake simulation)
+      // Drift is an offset from the center point — it always wanders back
+      driftVx += (Math.random() - 0.5) * DRIFT_ACCEL * 2;
+      driftVy += (Math.random() - 0.5) * DRIFT_ACCEL * 2;
+      // Spring force pulls drift back toward center (0,0 offset)
+      driftVx -= driftOx * 0.002;
+      driftVy -= driftOy * 0.002;
+      // Clamp velocity
+      const speed = Math.sqrt(driftVx * driftVx + driftVy * driftVy);
+      if (speed > DRIFT_MAX_SPEED) {
+        driftVx = (driftVx / speed) * DRIFT_MAX_SPEED;
+        driftVy = (driftVy / speed) * DRIFT_MAX_SPEED;
+      }
+      // Light drag to prevent runaway
+      driftVx *= 0.98;
+      driftVy *= 0.98;
+
+      // Heartbeat pulse — sharp upward kick then decay, like a real pulse
+      heartPhase += dt;
+      const beatPos = (heartPhase % HEART_PERIOD) / HEART_PERIOD; // 0..1 within beat
+      // Double-bump waveform (like a real heartbeat: systole + dicrotic notch)
+      let pulse = 0;
+      if (beatPos < 0.08) {
+        pulse = Math.sin(beatPos / 0.08 * Math.PI);
+      } else if (beatPos >= 0.15 && beatPos < 0.22) {
+        pulse = 0.4 * Math.sin((beatPos - 0.15) / 0.07 * Math.PI);
+      }
+      const heartDy = -pulse * HEART_AMPLITUDE;
+
+      // Update drift offset
+      driftOx += driftVx;
+      driftOy += driftVy + heartDy;
+
+      // Compute actual sight position
+      let sightX = cx + driftOx;
+      let sightY = cy + driftOy;
+
+      // Clamp sight to boundaries (bounce drift back)
+      if (sightX >= RG) { driftOx = RG - 1 - cx; driftVx = -Math.abs(driftVx); sightX = RG - 1; }
+      if (sightX <= LG) { driftOx = LG + 1 - cx; driftVx = Math.abs(driftVx); sightX = LG + 1; }
+      if (sightY >= OG) { driftOy = OG - 1 - cy; driftVy = -Math.abs(driftVy); sightY = OG - 1; }
+      if (sightY <= BG) { driftOy = BG + 1 - cy; driftVy = Math.abs(driftVy); sightY = BG + 1; }
+
+      drawScorecard();
+      if (state === 'shooting') {
+        drawCrosshair(sightX, sightY);
+      }
+      break;
+
+    case 'help':
+      drawScorecard();
+      drawHelp();
+      break;
+
+    case 'results':
+      drawScorecard();
+      drawResults();
+      break;
+
+    case 'scorecard':
+      updateScorecard(timestamp);
+      drawScorecard();
+      // Draw countdown
+      ctx.fillStyle = 'rgba(0, 0, 100, 0.9)';
+      ctx.fillRect(290, 400, 60, 35);
+      ctx.fillStyle = '#fff';
+      ctx.font = '22px serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(scorecardCountdown), 320, 425);
+      ctx.textAlign = 'left';
+      break;
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+function updateDrawrose(timestamp) {
+  if (!drawroseTimer) drawroseTimer = timestamp;
+  const elapsed = timestamp - drawroseTimer;
+
+  if (drawroseStep === 0 && elapsed > 3000) {
+    drawroseStep = 1;
+    drawroseTimer = timestamp;
+    drawroseLetterIndex = 0;
+  } else if (drawroseStep === 1) {
+    // Type out "TURBO PASCAL 7.0" letter by letter
+    const tpText = 'TURBO PASCAL 7.0';
+    if (elapsed > 2000) {
+      const letterElapsed = elapsed - 2000;
+      drawroseLetterIndex = Math.min(Math.floor(letterElapsed / 120), tpText.length);
+      if (drawroseLetterIndex >= tpText.length && elapsed > 2000 + tpText.length * 120 + 2000) {
+        state = 'intro';
+        introStep = 0;
+        introTimer = timestamp;
+      }
+    }
+  }
+}
+
+function updateIntro(timestamp) {
+  if (!introTimer) introTimer = timestamp;
+  const elapsed = timestamp - introTimer;
+
+  if (introStep === 0 && elapsed > 1500) {
+    introStep = 1;
+    playFire();
+  }
+  if (introStep === 1 && elapsed > 2500) {
+    introStep = 2;
+    playFire();
+  }
+  if (introStep === 2 && elapsed > 3500) {
+    introStep = 3;
+    playFire();
+  }
+}
+
+function updateScorecard(timestamp) {
+  const elapsed = timestamp - scorecardTimer;
+  const newCountdown = 9 - Math.floor(elapsed / 1000);
+  if (newCountdown !== scorecardCountdown && newCountdown >= 0) {
+    scorecardCountdown = newCountdown;
+  }
+  if (newCountdown < 0) {
+    state = 'results';
+  }
+}
+
+// --- Start ---
+canvas.setAttribute('tabindex', '0');
+canvas.focus();
+drawroseTimer = performance.now();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
