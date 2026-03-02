@@ -25,6 +25,16 @@ canvas {
   border: 1px solid #333;
   cursor: none;
 }
+#game-container.fullscreen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
+}
+#game-container.fullscreen canvas {
+  border: none;
+}
 .input-overlay {
   display: none;
   position: absolute;
@@ -176,6 +186,11 @@ let drawroseLetterIndex = 0;
 let scorecardCountdown = 0;
 let scorecardTimer = 0;
 
+// Muzzle flash state
+let flashAlpha = 0;
+let flashX = 0;
+let flashY = 0;
+
 // Audio
 let audioCtx = null;
 function ensureAudio() {
@@ -197,23 +212,35 @@ function playTone(freq, duration) {
 function playFire() {
   ensureAudio();
   const now = audioCtx.currentTime;
-  const osc1 = audioCtx.createOscillator();
-  const gain1 = audioCtx.createGain();
-  osc1.connect(gain1);
-  gain1.connect(audioCtx.destination);
-  osc1.frequency.value = 700;
-  gain1.gain.value = 0.15;
-  osc1.start(now);
-  osc1.stop(now + 0.05);
 
-  const osc2 = audioCtx.createOscillator();
-  const gain2 = audioCtx.createGain();
-  osc2.connect(gain2);
-  gain2.connect(audioCtx.destination);
-  osc2.frequency.value = 200;
-  gain2.gain.value = 0.15;
-  osc2.start(now + 0.07);
-  osc2.stop(now + 0.17);
+  // Layer 1 — Crack: white noise burst
+  const bufferSize = audioCtx.sampleRate * 0.08; // 80ms
+  const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = noiseBuffer;
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(0.4, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+  noise.connect(noiseGain);
+  noiseGain.connect(audioCtx.destination);
+  noise.start(now);
+  noise.stop(now + 0.08);
+
+  // Layer 2 — Boom: sine sweep 150Hz -> 50Hz
+  const osc = audioCtx.createOscillator();
+  osc.frequency.setValueAtTime(150, now);
+  osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
+  const oscGain = audioCtx.createGain();
+  oscGain.gain.setValueAtTime(0.3, now);
+  oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  osc.connect(oscGain);
+  oscGain.connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.2);
 }
 
 function playBump() {
@@ -521,7 +548,7 @@ function drawDrawrose() {
 function drawHelp() {
   // Dark overlay
   ctx.fillStyle = 'rgba(0, 0, 100, 0.95)';
-  ctx.fillRect(130, 80, 380, 340);
+  ctx.fillRect(130, 80, 380, 360);
 
   ctx.fillStyle = '#0a0';
   ctx.font = '12px monospace';
@@ -569,7 +596,8 @@ function drawHelp() {
   ctx.fillText('TELLING / SCORE = [4]', 145, ly); ly += 14;
   ly += 6;
   ctx.fillText('BEGIN OOR / RESTART = [5]', 145, ly); ly += 14;
-  ctx.fillText('HELP                = [6]', 145, ly); ly += 20;
+  ctx.fillText('HELP                = [6]', 145, ly); ly += 14;
+  ctx.fillText('VOLSKERM / FULLSCREEN = [F11]', 145, ly); ly += 20;
 
   ctx.fillStyle = '#888';
   ctx.font = '11px monospace';
@@ -703,6 +731,12 @@ document.getElementById('input-comp').addEventListener('keydown', (e) => {
 
 // Main keyboard handler
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'F11') {
+    e.preventDefault();
+    toggleFullscreen();
+    return;
+  }
+
   if (state === 'input_name' || state === 'input_team' || state === 'input_comp') return;
 
   keys[e.key] = true;
@@ -770,6 +804,9 @@ document.addEventListener('keydown', (e) => {
           skotex[aantal] = cx + driftOx;
           skotey[aantal] = cy + driftOy;
           playFire();
+          flashAlpha = 1.0;
+          flashX = skotex[aantal];
+          flashY = skotey[aantal];
           aantal++;
           calculateScore();
           if (aantal > RONTES || countScoringShots() >= 10) {
@@ -828,6 +865,7 @@ function resetGame() {
   driftOy = 0;
   driftVx = 0;
   driftVy = 0;
+  flashAlpha = 0;
   skotex = new Array(RONTES + 1).fill(0);
   skotey = new Array(RONTES + 1).fill(0);
 }
@@ -896,9 +934,31 @@ function gameLoop(timestamp) {
       if (sightY >= OG) { driftOy = OG - 1 - cy; driftVy = -Math.abs(driftVy); sightY = OG - 1; }
       if (sightY <= BG) { driftOy = BG + 1 - cy; driftVy = Math.abs(driftVy); sightY = BG + 1; }
 
+      // Muzzle flash decay
+      if (flashAlpha > 0) {
+        flashAlpha -= dt / 100;
+        if (flashAlpha < 0) flashAlpha = 0;
+      }
+
       drawScorecard();
       if (state === 'shooting') {
         drawCrosshair(sightX, sightY);
+      }
+
+      // Muzzle flash effect
+      if (flashAlpha > 0) {
+        // Radial gradient flash at shot position
+        const grad = ctx.createRadialGradient(flashX, flashY, 0, flashX, flashY, 60);
+        grad.addColorStop(0, `rgba(255, 255, 255, ${flashAlpha})`);
+        grad.addColorStop(0.3, `rgba(255, 255, 100, ${flashAlpha * 0.7})`);
+        grad.addColorStop(0.7, `rgba(255, 160, 0, ${flashAlpha * 0.3})`);
+        grad.addColorStop(1, 'rgba(255, 160, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(flashX - 60, flashY - 60, 120, 120);
+
+        // Subtle full-screen white overlay
+        ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha * 0.15})`;
+        ctx.fillRect(0, 0, 640, 480);
       }
       break;
 
@@ -980,6 +1040,42 @@ function updateScorecard(timestamp) {
     state = 'results';
   }
 }
+
+// --- Fullscreen ---
+const gameContainer = document.getElementById('game-container');
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    gameContainer.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+function updateCanvasScale() {
+  if (document.fullscreenElement) {
+    gameContainer.classList.add('fullscreen');
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const aspect = 640 / 480; // 4:3
+    let w, h;
+    if (vw / vh > aspect) {
+      h = vh;
+      w = h * aspect;
+    } else {
+      w = vw;
+      h = w / aspect;
+    }
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+  } else {
+    gameContainer.classList.remove('fullscreen');
+    canvas.style.width = '';
+    canvas.style.height = '';
+  }
+}
+
+document.addEventListener('fullscreenchange', updateCanvasScale);
 
 // --- Start ---
 canvas.setAttribute('tabindex', '0');

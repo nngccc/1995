@@ -49,6 +49,7 @@ drawrose → intro → shooting ⇄ help
 - Scorecard displayed as background with all 11 targets
 - Crosshair overlaid, subject to drift and heartbeat effects
 - Player aims and fires shots
+- Muzzle flash on each shot: radial gradient (white/yellow core → orange → transparent, 60px) at shot position + subtle full-screen white overlay, fades over ~100ms
 - Round ends when either condition is met:
   - 10 scoring shots fired (shots closest to a scoring target, not practice), OR
   - 13 total shots fired
@@ -181,6 +182,7 @@ For each of the 10 scoring targets:
 | 5 | Restart (clear all shots) | — |
 | 6 | Show help overlay | — |
 | Escape | Exit to intro screen | — |
+| F11 | Toggle fullscreen | — |
 
 ### During Results
 
@@ -189,6 +191,12 @@ For each of the 10 scoring targets:
 | 9 | View scorecard (10s countdown) |
 | 5 | Restart game |
 | Escape | Exit to intro |
+
+### Global (Any State)
+
+| Input | Action |
+|-------|--------|
+| F11 | Toggle fullscreen mode |
 
 ### During Other States
 - **drawrose/intro**: any key advances (except `6` → help from intro)
@@ -199,11 +207,11 @@ For each of the 10 scoring targets:
 
 ## Sound Effects
 
-All generated via `AudioContext` oscillators (no audio files).
+All procedurally generated via `AudioContext` (no audio files).
 
 | Event | Sound |
 |-------|-------|
-| Fire shot | 700Hz for 50ms, then 200Hz for 100ms (with 20ms gap) |
+| Fire shot | White noise burst (80ms, exponential decay from 0.4 gain) + sine sweep 150→50Hz over 200ms (gain 0.3). Gives a crack+boom gunshot effect. |
 | Boundary hit | 200Hz for 50ms |
 | Bump/tick | 50Hz for 30ms |
 
@@ -230,6 +238,7 @@ All generated via `AudioContext` oscillators (no audio files).
 | Target rings | `#000` | Black on olive |
 | Crosshair | `#fff` | White |
 | Shot marks | `#a00` | Dark red, 5px radius |
+| Muzzle flash | White→yellow→orange radial gradient | 60px radius, ~100ms fade |
 | Score text | `#0a0` | Green |
 | Highlight text | `#ff0` | Yellow |
 | User data | `#00a` | Dark blue |
@@ -239,6 +248,17 @@ All generated via `AudioContext` oscillators (no audio files).
 - Monospace for UI elements and labels
 - Serif for titles and headings
 - Sans-serif for credits
+
+---
+
+## Fullscreen Mode
+
+- Toggle with F11 (intercepted with `preventDefault`, works from any game state)
+- Uses Fullscreen API on the `#game-container` element
+- Canvas CSS-scaled to fit viewport while preserving 4:3 aspect ratio (internal 640x480 resolution unchanged)
+- `.fullscreen` CSS class: flex-centered container at 100vw/100vh, canvas border removed
+- `fullscreenchange` event triggers `updateCanvasScale()` to recalculate dimensions
+- Escape also exits fullscreen (browser default)
 
 ---
 
@@ -273,6 +293,9 @@ Help screen: Bilingual (Afrikaans / English)
 8. **Round completion** — ends at 10 scoring shots OR 13 total (original: always 13)
 9. **Live score** — updates after each shot (original: only on request or round end)
 10. **Space bar** — added as alternate fire key alongside Enter
+11. **Gunshot sound** — procedural crack+boom synthesis replacing simple oscillator tones
+12. **Muzzle flash** — visual flash effect on firing (not in original)
+13. **Fullscreen mode** — F11 toggle with aspect-ratio-preserving scaling
 
 ---
 
@@ -282,8 +305,6 @@ Help screen: Bilingual (Afrikaans / English)
 - Difficulty levels (adjust drift intensity, heartbeat amplitude, BPM)
 - High score persistence (localStorage)
 - Multiplayer / score comparison
-- Sound improvements (realistic gunshot samples via AudioBuffer)
 - Wind effect simulation
 - Breathing rhythm mechanic
 - Print scorecard
-- Fullscreen mode
