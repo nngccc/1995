@@ -145,7 +145,7 @@ const COL = {
 };
 
 // --- Game State ---
-let state = 'drawrose';    // Current game state
+let state = 'intro';       // Current game state
 let stateTimer = 0;        // Timer for timed states
 let naam = '';
 let span = '';
@@ -206,11 +206,6 @@ let breathHoldQuality = 0;          // 0..1, how well timed the hold was
 // Intro animation state
 let introStep = 0;
 let introTimer = 0;
-
-// DrawRose animation state
-let drawroseStep = 0;
-let drawroseTimer = 0;
-let drawroseLetterIndex = 0;
 
 // Results state
 let scorecardCountdown = 0;
@@ -574,76 +569,6 @@ function drawIntroScreen() {
   ctx.textAlign = 'left';
 }
 
-function drawDrawrose() {
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, 640, 480);
-  ctx.textAlign = 'center';
-
-  if (drawroseStep === 0) {
-    // "LCC PRODUKSIES" + rose drawing
-    ctx.fillStyle = '#fff';
-    ctx.font = '24px serif';
-    ctx.fillText('LCC PRODUKSIES', 320, 120);
-
-    // Simple rose/flower shape
-    ctx.fillStyle = '#a00';
-    ctx.beginPath();
-    ctx.ellipse(320, 240, 40, 70, 0, Math.PI, 0);
-    ctx.fill();
-
-    ctx.fillStyle = '#0a0';
-    ctx.beginPath();
-    ctx.ellipse(320, 360, 30, 30, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Stem
-    ctx.strokeStyle = '#0a0';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(320, 360);
-    ctx.lineTo(320, 420);
-    ctx.stroke();
-
-    // Leaves
-    ctx.fillStyle = '#0a0';
-    ctx.beginPath();
-    ctx.ellipse(305, 390, 15, 5, -0.3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(335, 390, 15, 5, 0.3, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Flame tips
-    ctx.fillStyle = '#ff0';
-    ctx.beginPath();
-    ctx.arc(320, 170, 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(300, 170, 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(340, 170, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#fff';
-    ctx.font = '22px serif';
-    ctx.fillText('. . .  BIED AAN  . . .', 320, 455);
-  } else if (drawroseStep === 1) {
-    ctx.fillStyle = '#fff';
-    ctx.font = '24px serif';
-    ctx.fillText('GEPROGRAMEER', 320, 180);
-    ctx.fillText('IN', 320, 250);
-
-    const tpText = 'TURBO PASCAL 7.0';
-    const shown = tpText.substring(0, drawroseLetterIndex);
-    ctx.fillStyle = '#fff';
-    ctx.font = '24px serif';
-    ctx.fillText(shown, 320, 320);
-  }
-
-  ctx.textAlign = 'left';
-}
-
 function drawHelp() {
   // Dark overlay
   ctx.fillStyle = 'rgba(0, 0, 100, 0.95)';
@@ -856,13 +781,6 @@ document.addEventListener('keydown', (e) => {
 
   keys[e.key] = true;
 
-  if (state === 'drawrose') {
-    state = 'intro';
-    introStep = 0;
-    introTimer = performance.now();
-    return;
-  }
-
   if (state === 'intro') {
     if (e.key === '6') {
       state = 'help';
@@ -1015,11 +933,6 @@ function gameLoop(timestamp) {
   lastFrameTime = timestamp;
 
   switch (state) {
-    case 'drawrose':
-      updateDrawrose(timestamp);
-      drawDrawrose();
-      break;
-
     case 'intro':
       updateIntro(timestamp);
       drawIntroScreen();
@@ -1213,29 +1126,6 @@ function gameLoop(timestamp) {
   requestAnimationFrame(gameLoop);
 }
 
-function updateDrawrose(timestamp) {
-  if (!drawroseTimer) drawroseTimer = timestamp;
-  const elapsed = timestamp - drawroseTimer;
-
-  if (drawroseStep === 0 && elapsed > 3000) {
-    drawroseStep = 1;
-    drawroseTimer = timestamp;
-    drawroseLetterIndex = 0;
-  } else if (drawroseStep === 1) {
-    // Type out "TURBO PASCAL 7.0" letter by letter
-    const tpText = 'TURBO PASCAL 7.0';
-    if (elapsed > 2000) {
-      const letterElapsed = elapsed - 2000;
-      drawroseLetterIndex = Math.min(Math.floor(letterElapsed / 120), tpText.length);
-      if (drawroseLetterIndex >= tpText.length && elapsed > 2000 + tpText.length * 120 + 2000) {
-        state = 'intro';
-        introStep = 0;
-        introTimer = timestamp;
-      }
-    }
-  }
-}
-
 function updateIntro(timestamp) {
   if (!introTimer) introTimer = timestamp;
   const elapsed = timestamp - introTimer;
@@ -1304,7 +1194,6 @@ document.addEventListener('fullscreenchange', updateCanvasScale);
 // --- Start ---
 canvas.setAttribute('tabindex', '0');
 canvas.focus();
-drawroseTimer = performance.now();
 requestAnimationFrame(gameLoop);
 </script>
 </body>
