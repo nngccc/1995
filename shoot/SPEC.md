@@ -132,6 +132,16 @@ The crosshair position = **center point** + **drift offset**.
 - Applies vertical displacement of ±2.5px to drift offset
 - Synced with ECG chart display
 
+**Breathing rhythm**:
+- 4-second cycle (15 breaths/min): inhale (0–40%), natural pause (40–50%), exhale (50–100%)
+- Adds vertical sway (±3px) and horizontal sway (±1.5px) to crosshair
+- Natural pause at 40–50% of cycle is the ideal moment to hold breath and fire
+- **Hold breath** (Shift): freezes breathing waveform at current position, stabilizing aim
+  - Comfortable hold up to 3.5 seconds
+  - Over-holding (past 3.5s): stress ramps 0→1 over 2s, increasing drift speed (×2.5), heart amplitude (×1.8), and adding 15Hz tremor
+  - Releasing after over-hold triggers 2s recovery with exaggerated breathing (1.5× amplitude fading to 1×)
+- Breath indicator bar (25×20px, left of ECG chart): shows lung fill level, green/yellow/red based on state
+
 ### Boundaries
 - Top: y=55, Bottom: y=430, Left: x=50, Right: x=582
 
@@ -175,6 +185,7 @@ For each of the 10 scoring targets:
 | Arrow keys | Move center point (medium) | 10px |
 | W/A/S/D | Move center point (large jump) | 50px |
 | Enter / Space | Fire shot | — |
+| Shift | Hold breath (stabilize aim) | — |
 | 1 | Enter name | — |
 | 2 | Enter team | — |
 | 3 | Enter competition | — |
@@ -296,6 +307,7 @@ Help screen: Bilingual (Afrikaans / English)
 11. **Gunshot sound** — procedural crack+boom synthesis replacing simple oscillator tones
 12. **Muzzle flash** — visual flash effect on firing (not in original)
 13. **Fullscreen mode** — F11 toggle with aspect-ratio-preserving scaling
+14. **Breathing rhythm** — new feature; adds respiratory sway cycle with hold-breath mechanic (Shift key)
 
 ---
 
@@ -306,5 +318,4 @@ Help screen: Bilingual (Afrikaans / English)
 - High score persistence (localStorage)
 - Multiplayer / score comparison
 - Wind effect simulation
-- Breathing rhythm mechanic
 - Print scorecard

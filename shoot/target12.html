@@ -173,6 +173,23 @@ const HEART_PERIOD = 60000 / HEART_BPM; // ms per beat
 const HEART_AMPLITUDE = 2.5;            // px displacement per pulse
 let heartPhase = 0;                     // accumulated phase in ms
 
+// Breathing rhythm
+const BREATH_PERIOD = 4000;          // 4s per breath (15 breaths/min)
+const BREATH_AMPLITUDE_Y = 3.0;     // vertical sway (px)
+const BREATH_AMPLITUDE_X = 1.5;     // horizontal sway (px)
+const BREATH_HOLD_MAX = 3500;       // comfortable hold duration (ms)
+const BREATH_RECOVERY_TIME = 2000;  // recovery after release (ms)
+
+let breathPhase = 0;
+let breathHolding = false;
+let breathHoldStart = 0;
+let breathHoldPhase = 0;            // breath cycle position when hold began (0..1)
+let breathRecovering = false;
+let breathRecoveryStart = 0;
+let breathStress = 0;               // 0..1, ramps up when over-holding
+let breathCurrentDx = 0;            // current frame breathing X displacement
+let breathCurrentDy = 0;            // current frame breathing Y displacement
+
 // Intro animation state
 let introStep = 0;
 let introTimer = 0;
@@ -312,6 +329,26 @@ function heartbeatWaveform(t) {
   return 0;                                                         // baseline
 }
 
+function breathingWaveform(t) {
+  // t = 0..1 within one breath cycle
+  // Returns {x, y} displacement
+  // 0.0–0.4: inhale (rising), 0.4–0.5: natural pause, 0.5–1.0: exhale (falling)
+  let dy, dx;
+  if (t < 0.4) {
+    const e = (1 - Math.cos(t / 0.4 * Math.PI)) / 2;
+    dy = -e * BREATH_AMPLITUDE_Y;
+    dx = Math.sin(t / 0.4 * Math.PI) * BREATH_AMPLITUDE_X * 0.5;
+  } else if (t < 0.5) {
+    dy = -BREATH_AMPLITUDE_Y;
+    dx = 0;
+  } else {
+    const e = (1 - Math.cos((t - 0.5) / 0.5 * Math.PI)) / 2;
+    dy = -(1 - e) * BREATH_AMPLITUDE_Y;
+    dx = -Math.sin((t - 0.5) / 0.5 * Math.PI * 0.7) * BREATH_AMPLITUDE_X * 0.3;
+  }
+  return { x: dx, y: dy };
+}
+
 function drawHeartbeatChart(x, y, w, h) {
   // Background
   ctx.fillStyle = '#000';
@@ -338,6 +375,55 @@ function drawHeartbeatChart(x, y, w, h) {
     else ctx.lineTo(px, py);
   }
   ctx.stroke();
+}
+
+function drawBreathIndicator(x, y, w, h) {
+  // Background
+  ctx.fillStyle = '#000';
+  ctx.fillRect(x, y - h / 2, w, h);
+  ctx.strokeStyle = '#030';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y - h / 2, w, h);
+
+  // Determine fill level from current breath waveform Y
+  let breathT;
+  if (breathHolding) {
+    breathT = breathHoldPhase;
+  } else {
+    breathT = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
+  }
+  const bw = breathingWaveform(breathT);
+  // Map dy from [-BREATH_AMPLITUDE_Y, 0] to fill [1, 0]
+  const fillLevel = Math.max(0, Math.min(1, -bw.y / BREATH_AMPLITUDE_Y));
+
+  // Choose color based on state
+  let barColor;
+  if (breathStress > 0.01) {
+    // Interpolate yellow to red based on stress
+    const r = 255;
+    const g = Math.round(255 * (1 - breathStress));
+    barColor = `rgb(${r},${g},0)`;
+  } else if (breathRecovering) {
+    barColor = '#ff0';
+  } else if (breathHolding) {
+    barColor = '#0f0';
+  } else {
+    barColor = '#0a0';
+  }
+
+  // Draw fill bar (bottom-up)
+  const barH = fillLevel * (h - 2);
+  ctx.fillStyle = barColor;
+  ctx.fillRect(x + 1, y + h / 2 - 1 - barH, w - 2, barH);
+
+  // Label when holding
+  if (breathHolding) {
+    ctx.fillStyle = barColor;
+    ctx.font = '7px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('ASEM', x + w / 2, y - h / 2 - 2);
+    ctx.textAlign = 'left';
+  }
 }
 
 function drawShots() {
@@ -377,6 +463,9 @@ function drawScorecard() {
 
   // Heartbeat chart
   drawHeartbeatChart(220, 432, 200, 20);
+
+  // Breath indicator
+  drawBreathIndicator(185, 432, 25, 20);
 
   // S.A.N.S.S.U. 01
   ctx.fillStyle = COL.crosshair;
@@ -548,7 +637,7 @@ function drawDrawrose() {
 function drawHelp() {
   // Dark overlay
   ctx.fillStyle = 'rgba(0, 0, 100, 0.95)';
-  ctx.fillRect(130, 80, 380, 360);
+  ctx.fillRect(130, 80, 380, 374);
 
   ctx.fillStyle = '#0a0';
   ctx.font = '12px monospace';
@@ -585,6 +674,7 @@ function drawHelp() {
 
   ly += 6;
   ctx.fillText('SKIET / SHOOT   = [ENTER / SPACE]', 145, ly); ly += 14;
+  ctx.fillText('HOU ASEM / HOLD BREATH = [SHIFT]', 145, ly); ly += 14;
   ctx.fillText('EXIT            = [ESC]', 145, ly); ly += 20;
 
   ctx.fillStyle = '#fff';
@@ -737,6 +827,13 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
+  if (e.key === 'Shift' && state === 'shooting' && !breathHolding) {
+    breathHolding = true;
+    breathHoldStart = performance.now();
+    breathHoldPhase = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
+    return;
+  }
+
   if (state === 'input_name' || state === 'input_team' || state === 'input_comp') return;
 
   keys[e.key] = true;
@@ -801,8 +898,8 @@ document.addEventListener('keydown', (e) => {
       case 'Enter':
       case ' ':
         if (aantal <= RONTES) {
-          skotex[aantal] = cx + driftOx;
-          skotey[aantal] = cy + driftOy;
+          skotex[aantal] = cx + driftOx + breathCurrentDx;
+          skotey[aantal] = cy + driftOy + breathCurrentDy;
           playFire();
           flashAlpha = 1.0;
           flashX = skotex[aantal];
@@ -854,6 +951,11 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('keyup', (e) => {
   delete keys[e.key];
+  if (e.key === 'Shift' && breathHolding) {
+    breathHolding = false;
+    breathRecovering = true;
+    breathRecoveryStart = performance.now();
+  }
 });
 
 function resetGame() {
@@ -868,6 +970,15 @@ function resetGame() {
   flashAlpha = 0;
   skotex = new Array(RONTES + 1).fill(0);
   skotey = new Array(RONTES + 1).fill(0);
+  breathPhase = 0;
+  breathHolding = false;
+  breathHoldStart = 0;
+  breathHoldPhase = 0;
+  breathRecovering = false;
+  breathRecoveryStart = 0;
+  breathStress = 0;
+  breathCurrentDx = 0;
+  breathCurrentDy = 0;
 }
 
 // --- Game Loop ---
@@ -891,18 +1002,69 @@ function gameLoop(timestamp) {
     case 'input_name':
     case 'input_team':
     case 'input_comp':
-      // Smooth crosshair drift (hand shake simulation)
+      // --- Breathing state update ---
+      breathPhase += dt;
+
+      // Compute breathing displacement
+      let breathDx = 0, breathDy = 0;
+      if (breathHolding) {
+        const holdElapsed = performance.now() - breathHoldStart;
+        if (holdElapsed > BREATH_HOLD_MAX) {
+          // Over-holding: ramp stress from 0→1 over 2s past limit
+          breathStress = Math.min(1, (holdElapsed - BREATH_HOLD_MAX) / 2000);
+        } else {
+          breathStress = 0;
+        }
+        // Freeze waveform at hold phase
+        const bw = breathingWaveform(breathHoldPhase);
+        breathDx = bw.x;
+        breathDy = bw.y;
+        // Add tremor when stressed
+        if (breathStress > 0) {
+          const tremor = breathStress * 1.5;
+          const tremorFreq = performance.now() / 1000 * 15 * Math.PI * 2;
+          breathDx += Math.sin(tremorFreq) * tremor;
+          breathDy += Math.cos(tremorFreq * 1.3) * tremor;
+        }
+      } else if (breathRecovering) {
+        const recElapsed = performance.now() - breathRecoveryStart;
+        const recProgress = Math.min(1, recElapsed / BREATH_RECOVERY_TIME);
+        // Exaggerated breathing fading to normal (1.5× → 1×)
+        const ampMul = 1.5 - 0.5 * recProgress;
+        breathStress = breathStress * (1 - recProgress);
+        const breathT = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
+        const bw = breathingWaveform(breathT);
+        breathDx = bw.x * ampMul;
+        breathDy = bw.y * ampMul;
+        if (recProgress >= 1) {
+          breathRecovering = false;
+          breathStress = 0;
+        }
+      } else {
+        // Normal breathing
+        const breathT = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
+        const bw = breathingWaveform(breathT);
+        breathDx = bw.x;
+        breathDy = bw.y;
+      }
+
+      // Store for shot position calculation
+      breathCurrentDx = breathDx;
+      breathCurrentDy = breathDy;
+
+      // --- Smooth crosshair drift (hand shake simulation) ---
       // Drift is an offset from the center point — it always wanders back
       driftVx += (Math.random() - 0.5) * DRIFT_ACCEL * 2;
       driftVy += (Math.random() - 0.5) * DRIFT_ACCEL * 2;
       // Spring force pulls drift back toward center (0,0 offset)
       driftVx -= driftOx * 0.002;
       driftVy -= driftOy * 0.002;
-      // Clamp velocity
+      // Clamp velocity — stress increases max speed
+      const driftMaxSpeed = DRIFT_MAX_SPEED * (1 + breathStress * 1.5);
       const speed = Math.sqrt(driftVx * driftVx + driftVy * driftVy);
-      if (speed > DRIFT_MAX_SPEED) {
-        driftVx = (driftVx / speed) * DRIFT_MAX_SPEED;
-        driftVy = (driftVy / speed) * DRIFT_MAX_SPEED;
+      if (speed > driftMaxSpeed) {
+        driftVx = (driftVx / speed) * driftMaxSpeed;
+        driftVy = (driftVy / speed) * driftMaxSpeed;
       }
       // Light drag to prevent runaway
       driftVx *= 0.98;
@@ -918,15 +1080,17 @@ function gameLoop(timestamp) {
       } else if (beatPos >= 0.15 && beatPos < 0.22) {
         pulse = 0.4 * Math.sin((beatPos - 0.15) / 0.07 * Math.PI);
       }
-      const heartDy = -pulse * HEART_AMPLITUDE;
+      // Stress increases heart amplitude
+      const heartAmp = HEART_AMPLITUDE * (1 + breathStress * 0.8);
+      const heartDy = -pulse * heartAmp;
 
-      // Update drift offset
+      // Update drift offset (drift + heartbeat)
       driftOx += driftVx;
       driftOy += driftVy + heartDy;
 
-      // Compute actual sight position
-      let sightX = cx + driftOx;
-      let sightY = cy + driftOy;
+      // Compute actual sight position (drift + breathing displacement)
+      let sightX = cx + driftOx + breathDx;
+      let sightY = cy + driftOy + breathDy;
 
       // Clamp sight to boundaries (bounce drift back)
       if (sightX >= RG) { driftOx = RG - 1 - cx; driftVx = -Math.abs(driftVx); sightX = RG - 1; }
