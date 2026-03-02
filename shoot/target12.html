@@ -173,6 +173,14 @@ let heartPhase = 0;                     // accumulated phase in ms
 let heartBPM = 60;                      // current BPM (dynamic)
 let heartBPMTarget = 60;                // what BPM is trending toward
 
+// ECG chart history buffer — stores waveform values so past beats don't shift when BPM changes
+const ECG_CHART_WIDTH = 200;            // must match drawHeartbeatChart width
+const ECG_CHART_TIMESPAN = 2000;        // 2s visible window
+const ecgHistory = new Float32Array(ECG_CHART_WIDTH); // circular buffer of waveform values
+let ecgHistoryHead = 0;                 // next write position
+let ecgAccumMs = 0;                     // ms accumulated since last ecg sample
+let ecgBeatPhase = 0;                   // 0..1 phase within current beat cycle
+
 // Breathing rhythm
 const BREATH_PERIOD = 4000;          // 4s per breath (15 breaths/min)
 const BREATH_AMPLITUDE_Y = 25.0;    // vertical sway (px) — dominant in prone, forces breath-hold
@@ -363,19 +371,14 @@ function drawHeartbeatChart(x, y, w, h) {
   ctx.lineWidth = 1;
   ctx.strokeRect(x, y - h / 2, w, h);
 
-  // Draw the scrolling ECG trace
-  const now = heartPhase;
-  const ecgPeriod = 60000 / heartBPM;
+  // Draw the scrolling ECG trace from history buffer
   ctx.strokeStyle = '#f00';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  const steps = w;
-  for (let i = 0; i < steps; i++) {
-    // Each pixel = a slice of time; show ~2 beats worth
-    const timeSpan = ecgPeriod * 2;
-    const tMs = now - timeSpan + (i / steps) * timeSpan;
-    const beatT = ((tMs % ecgPeriod) + ecgPeriod) % ecgPeriod / ecgPeriod;
-    const val = heartbeatWaveform(beatT);
+  for (let i = 0; i < w; i++) {
+    // Read from circular buffer: oldest sample first
+    const bufIdx = (ecgHistoryHead + i) % ECG_CHART_WIDTH;
+    const val = ecgHistory[bufIdx];
     const px = x + i;
     const py = y - val * (h / 2) * 0.85;
     if (i === 0) ctx.moveTo(px, py);
@@ -1117,6 +1120,17 @@ function gameLoop(timestamp) {
 
       // Heartbeat pulse — sharp upward kick then decay, like a real pulse
       heartPhase += dt;
+
+      // Advance ECG chart buffer at constant sample rate
+      ecgAccumMs += dt;
+      const ecgSampleInterval = ECG_CHART_TIMESPAN / ECG_CHART_WIDTH; // ms per pixel
+      while (ecgAccumMs >= ecgSampleInterval) {
+        ecgAccumMs -= ecgSampleInterval;
+        ecgBeatPhase += ecgSampleInterval / (60000 / heartBPM);
+        ecgBeatPhase -= Math.floor(ecgBeatPhase); // wrap to 0..1
+        ecgHistory[ecgHistoryHead] = heartbeatWaveform(ecgBeatPhase);
+        ecgHistoryHead = (ecgHistoryHead + 1) % ECG_CHART_WIDTH;
+      }
       const currentHeartPeriod = 60000 / heartBPM;
       const beatPos = (heartPhase % currentHeartPeriod) / currentHeartPeriod; // 0..1 within beat
       // Double-bump waveform (like a real heartbeat: systole + dicrotic notch)
