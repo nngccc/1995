@@ -772,8 +772,8 @@ document.addEventListener('keydown', (e) => {
     breathHoldStartDy = bwStart.y;
     // Timing reward: how close to natural pause (0.4–0.5)?
     breathHoldQuality = 1 - Math.min(Math.abs(breathHoldPhase - 0.45) / 0.45, 1);
-    breathHoldRestDx = 0;
-    breathHoldRestDy = BREATH_AMPLITUDE_Y * (1 - breathHoldQuality) * 0.3;
+    breathHoldRestDx = breathHoldStartDx * 0.9;
+    breathHoldRestDy = breathHoldStartDy * (0.7 + 0.3 * breathHoldQuality);
     return;
   }
 
