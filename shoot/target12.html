@@ -387,7 +387,8 @@ function drawScorecard() {
   ctx.font = '11px monospace';
   ctx.textAlign = 'right';
   const shotsUsed = Math.min(aantal - 1, RONTES);
-  ctx.fillText(`Skote: ${shotsUsed}/${RONTES}`, 630, 15);
+  const scoring = countScoringShots();
+  ctx.fillText(`Skote: ${scoring}/10  (${shotsUsed}/${RONTES})`, 630, 15);
   ctx.textAlign = 'left';
 }
 
@@ -609,6 +610,24 @@ function drawResults() {
   ctx.textAlign = 'left';
 }
 
+// --- Count scoring shots (shots closest to a scoring target, not practice) ---
+function countScoringShots() {
+  let count = 0;
+  for (let s = 1; s < aantal; s++) {
+    if (skotex[s] === 0 && skotey[s] === 0) continue;
+    let minDist = Infinity;
+    let closestIdx = -1;
+    for (let ti = 0; ti < TARGETS.length; ti++) {
+      const dx = TARGETS[ti].x - skotex[s];
+      const dy = TARGETS[ti].y - skotey[s];
+      const dist = dx * dx + dy * dy;
+      if (dist < minDist) { minDist = dist; closestIdx = ti; }
+    }
+    if (closestIdx !== 5) count++; // not the practice target
+  }
+  return count;
+}
+
 // --- Score Calculation (port of SCORE procedure) ---
 function calculateScore() {
   telling = 0;
@@ -753,7 +772,7 @@ document.addEventListener('keydown', (e) => {
           playFire();
           aantal++;
           calculateScore();
-          if (aantal === RONTES + 1) {
+          if (aantal > RONTES || countScoringShots() >= 10) {
             state = 'results';
           }
         }
