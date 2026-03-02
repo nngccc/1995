@@ -121,26 +121,29 @@ The crosshair position = **center point** + **drift offset**.
 
 **Drift offset** (`driftOx`, `driftOy`):
 - Simulates hand shake — continuous random wandering
-- Velocity-based: random acceleration each frame (±0.15), clamped to 1.2 px/frame max
-- Spring force pulls offset back toward (0,0) — factor 0.002
-- Light drag (0.98× per frame)
+- Velocity-based: random acceleration each frame (±0.06), clamped to 0.5 px/frame max
+- Spring force pulls offset back toward (0,0) — factor 0.005
+- Drag (0.95× per frame) — ground contact dampens movement
 - Bounces off boundaries
+- Parameters tuned for prone position with sling support (minimal wander)
 
 **Heartbeat effect**:
 - 60 BPM (1000ms period)
 - Double-bump waveform at beat positions 0-0.08 (systole) and 0.15-0.22 (dicrotic notch)
-- Applies vertical displacement of ±2.5px to drift offset
+- Applies vertical displacement of ±3.5px to drift offset — prone transmits pulse through chest-to-ground contact
 - Synced with ECG chart display
 
-**Breathing rhythm**:
+**Breathing rhythm** (dominant disturbance in prone):
 - 4-second cycle (15 breaths/min): inhale (0–40%), natural pause (40–50%), exhale (50–100%)
-- Adds vertical sway (±3px) and horizontal sway (±1.5px) to crosshair
+- Adds vertical sway (±12px) and horizontal sway (±1px) to crosshair — chest rise/fall is the primary motion, large enough to force the player to hold breath for accurate shots
 - Natural pause at 40–50% of cycle is the ideal moment to hold breath and fire
 - **Hold breath** (Shift): freezes breathing waveform at current position, stabilizing aim
-  - Comfortable hold up to 3.5 seconds
-  - Over-holding (past 3.5s): stress ramps 0→1 over 2s, increasing drift speed (×2.5), heart amplitude (×1.8), and adding 15Hz tremor
+  - Comfortable hold up to 4.0 seconds (prone is more stable)
+  - Over-holding (past 4.0s): stress ramps 0→1 over 2s, increasing drift speed (×3.0), heart amplitude (×1.8), and adding 15Hz tremor (×2.0) — stress effects are dramatic against the stable prone baseline
   - Releasing after over-hold triggers 2s recovery with exaggerated breathing (1.5× amplitude fading to 1×)
 - Breath indicator bar (25×20px, left of ECG chart): shows lung fill level, green/yellow/red based on state
+
+> **Note:** All movement parameters are tuned for prone Bisley shooting with sling support. Drift is minimal, breathing is the dominant disturbance (primarily vertical), and heartbeat is transmitted directly through chest-to-ground contact. Stress penalties are sharper to contrast with the otherwise stable platform.
 
 ### Boundaries
 - Top: y=55, Bottom: y=430, Left: x=50, Right: x=582
