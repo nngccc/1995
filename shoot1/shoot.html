@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SA Quadrangular Bisley Shooting Championship</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: monospace;
+  color: #fff;
+}
+#game-container {
+  position: relative;
+  width: 640px;
+  height: 480px;
+}
+canvas {
+  display: block;
+  border: 1px solid #333;
+  cursor: none;
+}
+#game-container.fullscreen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
+}
+#game-container.fullscreen canvas { border: none; }
+.input-overlay {
+  display: none;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,80,0.95);
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+.input-overlay.active { display: flex; }
+.input-overlay label {
+  font-size: 16px;
+  margin-bottom: 14px;
+  color: #ff0;
+  font-family: monospace;
+  letter-spacing: 1px;
+}
+.input-overlay input {
+  font-size: 16px;
+  padding: 8px 16px;
+  background: #003300;
+  color: #0f0;
+  border: 2px solid #0a0;
+  outline: none;
+  font-family: monospace;
+  text-align: center;
+  width: 240px;
+  text-transform: uppercase;
+}
+.input-overlay input:focus { border-color: #0f0; }
+.input-overlay .hint { font-size: 11px; color: #666; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div id="game-container">
+  <canvas id="c" width="640" height="480"></canvas>
+  <div class="input-overlay" id="overlay-name">
+    <label>ENTER YOUR NAME</label>
+    <input type="text" id="input-name" maxlength="15" placeholder="NAME">
+    <div class="hint">Press Enter to confirm, Escape to cancel</div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// SA QUADRANGULAR BISLEY CHAMPIONSHIP — Web Version
+// Original: SHOOT1.PAS — Nico Gerber, 1997 (Turbo Pascal 7.0)
+// Web port: 2026
+// ============================================================
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// --- Team Data (from parsed .DAT binary files) ---
+const TEAMS = {
+  RSA: { name: 'SOUTH AFRICA', members: [
+    {naam:'GS VAN RHYN',  g1:6, g2:2, g3:2, faktor:5},
+    {naam:'WC FOURIE',    g1:3, g2:5, g3:3, faktor:5},
+    {naam:'PWJ DE BRUIN', g1:4, g2:4, g3:4, faktor:5},
+    {naam:'S PRETORIUS',  g1:5, g2:4, g3:3, faktor:4},
+    {naam:'MJD STEYN',    g1:2, g2:5, g3:6, faktor:3},
+  ]},
+  ENG: { name: 'ENGLAND', members: [
+    {naam:'T WAKEFIELD',  g1:2, g2:6, g3:2, faktor:5},
+    {naam:'T KIDNER',     g1:3, g2:3, g3:5, faktor:5},
+    {naam:'WJ DALLIMORE', g1:3, g2:4, g3:5, faktor:5},
+    {naam:'K MURRAY',     g1:4, g2:3, g3:5, faktor:4},
+    {naam:'R PERKINS',    g1:6, g2:2, g3:5, faktor:3},
+  ]},
+  GER: { name: 'GERMANY', members: [
+    {naam:'H BICHLER',  g1:2, g2:2, g3:2, faktor:4},
+    {naam:'B SHOOTER',  g1:3, g2:5, g3:3, faktor:5},
+    {naam:'C SHOOTER',  g1:4, g2:4, g3:6, faktor:6},
+    {naam:'D SHOOTER',  g1:6, g2:3, g3:4, faktor:5},
+    {naam:'E SHOOTER',  g1:6, g2:6, g3:2, faktor:3},
+  ]},
+  USA: { name: 'UNITED STATES', members: [
+    {naam:'A WHITFIELD', g1:2, g2:2, g3:6, faktor:5},
+    {naam:'M DAVIES',    g1:3, g2:3, g3:6, faktor:5},
+    {naam:'WJ SHEPHERD', g1:4, g2:5, g3:5, faktor:5},
+    {naam:'DG YOUNG',    g1:3, g2:4, g3:6, faktor:4},
+    {naam:'J HOLTERMAN', g1:2, g2:6, g3:6, faktor:3},
+  ]},
+};
+const TEAM_ORDER = ['RSA','ENG','GER','USA'];
+
+// --- Key Constants ---
+const LG = 400, RG = 570, BG = 248, OG = 414;  // crosshair bounds
+const START_X = 470, START_Y = 280;
+const CARD_X = 435, CARD_Y = 255;
+const GR = 20;   // crosshair radius
+const SK = 3;    // shot dot radius
+const CH = 6;    // scope magnification (unused in draw, kept for ref)
+const XD = 3;    // arrow key step
+
+// Target positions
+const SIGHTERS = [{x:463,y:288},{x:507,y:288}];
+const SCORING_TARGETS = [{x:463,y:331},{x:507,y:331},{x:463,y:374},{x:507,y:374}];
+
+// Scoring zone
+const ZONE_X1=435, ZONE_X2=535, ZONE_Y1=310, ZONE_Y2=405;
+
+const DIST_CONFIG = {
+  '25':  {shotTel:10, crd:6},
+  '50':  {shotTel:20, crd:3},
+  '100': {shotTel:20, crd:3},
+};
+
+const DIST_VISUAL = {
+  '25':  { targetR: 12, rings: [4, 7, 11] },  // bigger bull = closer range
+  '50':  { targetR:  8, rings: [2, 4,  6] },  // standard
+  '100': { targetR:  8, rings: [2, 4,  6] },  // same as 50m (Pascal treats identically)
+};
+
+// Physics constants (from target12.html)
+const DRIFT_ACCEL = 0.06;
+const DRIFT_MAX_SPEED = 0.5;
+const HEART_AMPLITUDE = 3.5;
+const BREATH_PERIOD = 4000;
+const BREATH_AMPLITUDE_Y = 25.0;
+const BREATH_AMPLITUDE_X = 4.0;
+const BREATH_HOLD_MAX = 4000;
+const BREATH_RECOVERY_TIME = 2000;
+
+// --- Game State ---
+let state = 'opening';
+let prevState = 'shooting';
+
+// Player/session
+let naam = 'NAME', span = 'SOUTH AFRICA', curt = 'RSA';
+let afstand = '50';
+let kompx = false;
+
+// Shooting session
+const RONTES = 80;
+let shotX = new Array(RONTES+1).fill(0);
+let shotY = new Array(RONTES+1).fill(0);
+let aantal = 1;
+let tellers = 0;
+let card = 1;
+let crd = 3;
+let shotTel = 20;
+
+// Card scores
+let tela=0, telb=0, telc=0, telt=0;
+let telling = 0;
+
+// AI scores
+let aiScores = {};
+
+// Crosshair
+let cx = START_X, cy = START_Y;
+let driftOx=0, driftOy=0, driftVx=0, driftVy=0;
+
+// Breathing
+let breathPhase=0;
+let breathHolding=false, breathHoldStart=0, breathStress=0;
+let breathRecovering=false, breathRecoverStart=0;
+let breathHoldPhase=0;
+let breathHoldStartDx=0, breathHoldStartDy=0;
+let breathHoldRestDx=0, breathHoldRestDy=0;
+let breathHoldQuality=0;
+let breathCurrentDx=0, breathCurrentDy=0;
+
+// Heartbeat
+let heartPhase=0, heartBPM=60, heartBPMTarget=60;
+
+// ECG
+const ECG_W = 180;
+const ECG_TIMESPAN = 2000;
+const ecgHistory = new Float32Array(ECG_W);
+let ecgHead = 0;
+let ecgAccumMs = 0;
+let ecgBeatPhase = 0;
+
+// Scope
+let scopeActive = false;
+let scopeTarget = 0;
+
+// Muzzle flash
+let flashAlpha=0, flashX=0, flashY=0;
+
+// Input
+const keys = {};
+let lastFrameTime = 0;
+
+// Audio
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function playTone(freq, duration) {
+  ensureAudio();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.frequency.value = freq; gain.gain.value = 0.12;
+  osc.start(); osc.stop(audioCtx.currentTime + duration/1000);
+}
+function playFire() {
+  ensureAudio();
+  const now = audioCtx.currentTime;
+  const sz = Math.floor(audioCtx.sampleRate * 0.08);
+  const nb = audioCtx.createBuffer(1, sz, audioCtx.sampleRate);
+  const d = nb.getChannelData(0);
+  for (let i=0;i<sz;i++) d[i]=Math.random()*2-1;
+  const ns = audioCtx.createBufferSource(); ns.buffer=nb;
+  const ng = audioCtx.createGain();
+  ng.gain.setValueAtTime(0.4,now); ng.gain.exponentialRampToValueAtTime(0.001,now+0.08);
+  ns.connect(ng); ng.connect(audioCtx.destination); ns.start(now); ns.stop(now+0.08);
+  const osc = audioCtx.createOscillator();
+  osc.frequency.setValueAtTime(150,now); osc.frequency.exponentialRampToValueAtTime(50,now+0.2);
+  const og2 = audioCtx.createGain();
+  og2.gain.setValueAtTime(0.3,now); og2.gain.exponentialRampToValueAtTime(0.001,now+0.2);
+  osc.connect(og2); og2.connect(audioCtx.destination); osc.start(now); osc.stop(now+0.2);
+}
+function playChime() {
+  ensureAudio();
+  const now = audioCtx.currentTime;
+  for (let i=0; i<3; i++) {
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.connect(g); g.connect(audioCtx.destination);
+    osc.frequency.value = [523,659,784][i];
+    g.gain.setValueAtTime(0.15, now+i*0.1);
+    g.gain.exponentialRampToValueAtTime(0.001, now+i*0.1+0.3);
+    osc.start(now+i*0.1); osc.stop(now+i*0.1+0.3);
+  }
+}
+
+// --- CALC (AI score generation) ---
+function calc(teamCode) {
+  const team = TEAMS[teamCode];
+  const scores = [];
+  let total = 0;
+  for (const m of team.members) {
+    const ff1 = Math.floor(Math.random()*3);
+    const b1 = Math.min(200, 200-(ff1===1 ? m.g1+Math.floor(Math.random()*m.faktor) : m.g1-Math.floor(Math.random()*m.faktor)));
+    const ff2 = Math.floor(Math.random()*3);
+    const b2 = Math.min(200, 200-(ff2===2 ? m.g2+Math.floor(Math.random()*m.faktor) : m.g2-Math.floor(Math.random()*m.faktor)));
+    const ff3 = Math.floor(Math.random()*3);
+    const b3 = Math.min(200, 200-(ff3===0 ? m.g3+Math.floor(Math.random()*m.faktor) : m.g3-Math.floor(Math.random()*m.faktor)));
+    const t = b1+b2+b3;
+    total += t;
+    scores.push({b1,b2,b3,total:t});
+  }
+  return {scores, total};
+}
+
+// --- SCORE_50 (faithful port of Pascal SCORE_50) ---
+function score50(shots) {
+  let telling = 0;
+  for (const t of SCORING_TARGETS) {
+    for (const s of shots) {
+      if (s.x===0 && s.y===0) continue;
+      const d = Math.round(Math.sqrt((t.x-s.x)**2+(t.y-s.y)**2));
+      if      (d <= 1)  telling += 10;
+      else if (d <= 3)  telling += 9;
+      else if (d <= 5)  telling += 8;
+      else if (d <= 7)  telling += 7;
+      else if (d <= 9)  telling += 6;
+      else if (d <= 11) telling += 5;
+      else if (d <= 13) telling += 4;
+    }
+  }
+  return telling;
+}
+
+// --- SCORE_25 (Pascal SCORE procedure thresholds — wider zones at short range) ---
+function score25(shots) {
+  let telling = 0;
+  for (const t of SCORING_TARGETS) {
+    let som = 60;
+    for (const s of shots) {
+      if (s.x===0 && s.y===0) continue;
+      const d = Math.round(Math.sqrt((t.x-s.x)**2+(t.y-s.y)**2));
+      if (d < som) som = d;
+    }
+    if      (som <= 2)  telling += 10;
+    else if (som <= 5)  telling += 9;
+    else if (som <= 8)  telling += 8;
+    else if (som <= 11) telling += 7;
+    else if (som <= 14) telling += 6;
+  }
+  return telling;
+}
+
+// --- Physics (from target12.html) ---
+function breathingWaveform(t) {
+  let dy, dx;
+  if (t < 0.4) {
+    const e = (1-Math.cos(t/0.4*Math.PI))/2;
+    dy = e*BREATH_AMPLITUDE_Y; dx = e*BREATH_AMPLITUDE_X;
+  } else if (t < 0.5) {
+    dy = BREATH_AMPLITUDE_Y; dx = BREATH_AMPLITUDE_X;
+  } else {
+    const e = (1-Math.cos((t-0.5)/0.5*Math.PI))/2;
+    dy = (1-e)*BREATH_AMPLITUDE_Y; dx = (1-e)*BREATH_AMPLITUDE_X;
+  }
+  return {x:dx, y:dy};
+}
+
+function heartbeatWaveform(t) {
+  if (t < 0.05) return 0;
+  if (t < 0.08) return 0.15*Math.sin((t-0.05)/0.03*Math.PI);
+  if (t < 0.12) return 0;
+  if (t < 0.14) return -0.15;
+  if (t < 0.18) return Math.sin((t-0.14)/0.04*Math.PI);
+  if (t < 0.21) return -0.25;
+  if (t < 0.25) return -0.25*(1-(t-0.21)/0.04);
+  if (t < 0.35) return 0;
+  if (t < 0.45) return 0.2*Math.sin((t-0.35)/0.10*Math.PI);
+  return 0;
+}
+
+function updatePhysics(dt) {
+  breathPhase += dt;
+
+  let breathDx=0, breathDy=0;
+  if (breathHolding) {
+    const holdElapsed = performance.now()-breathHoldStart;
+    if (holdElapsed > BREATH_HOLD_MAX) {
+      breathStress = Math.min(1,(holdElapsed-BREATH_HOLD_MAX)/2000);
+      const hrStress = Math.max(0,(breathStress-0.25)/0.75);
+      heartBPMTarget = 60+hrStress*40;
+    } else {
+      breathStress = 0;
+    }
+    const settleProgress = Math.min(1,holdElapsed/500);
+    const eased = settleProgress*settleProgress*(3-2*settleProgress);
+    breathDx = breathHoldStartDx+(breathHoldRestDx-breathHoldStartDx)*eased;
+    breathDy = breathHoldStartDy+(breathHoldRestDy-breathHoldStartDy)*eased;
+    if (breathStress > 0) {
+      const wf = performance.now()/1000*2*Math.PI*2;
+      const wa = breathStress*4.0;
+      breathDx += Math.sin(wf)*wa;
+      breathDy += Math.cos(wf*0.7)*wa*1.2;
+    }
+  } else if (breathRecovering) {
+    const recElapsed = performance.now()-breathRecoverStart;
+    if (recElapsed < 400) {
+      const gaspT = recElapsed/400;
+      breathDy = 8*Math.sin(gaspT*Math.PI);
+      breathDx = 0;
+    } else {
+      const adjElapsed = recElapsed-400;
+      const recProgress = Math.min(1,adjElapsed/BREATH_RECOVERY_TIME);
+      const ampMul = 1.5-0.5*recProgress;
+      breathStress = breathStress*(1-recProgress);
+      const breathT = (breathPhase%BREATH_PERIOD)/BREATH_PERIOD;
+      const bw = breathingWaveform(breathT);
+      breathDx = bw.x*ampMul; breathDy = bw.y*ampMul;
+      if (recProgress >= 1) { breathRecovering=false; breathStress=0; }
+    }
+  } else {
+    const breathT = (breathPhase%BREATH_PERIOD)/BREATH_PERIOD;
+    const bw = breathingWaveform(breathT);
+    breathDx = bw.x; breathDy = bw.y;
+  }
+
+  const hrChaseRate = heartBPMTarget>heartBPM ? 0.0004 : 0.0002;
+  heartBPM += (heartBPMTarget-heartBPM)*hrChaseRate*dt;
+  if (!breathHolding) heartBPMTarget=60;
+
+  breathCurrentDx = breathDx;
+  breathCurrentDy = breathDy;
+
+  driftVx += (Math.random()-0.5)*DRIFT_ACCEL*2;
+  driftVy += (Math.random()-0.5)*DRIFT_ACCEL*2;
+  driftVx -= driftOx*0.005;
+  driftVy -= driftOy*0.005;
+  const driftMaxSpeed = DRIFT_MAX_SPEED*(1+breathStress*2.0);
+  const speed = Math.sqrt(driftVx*driftVx+driftVy*driftVy);
+  if (speed > driftMaxSpeed) {
+    driftVx = (driftVx/speed)*driftMaxSpeed;
+    driftVy = (driftVy/speed)*driftMaxSpeed;
+  }
+  driftVx *= 0.95; driftVy *= 0.95;
+
+  heartPhase += dt;
+  ecgAccumMs += dt;
+  const ecgInterval = ECG_TIMESPAN/ECG_W;
+  while (ecgAccumMs >= ecgInterval) {
+    ecgAccumMs -= ecgInterval;
+    ecgBeatPhase += ecgInterval/(60000/heartBPM);
+    ecgBeatPhase -= Math.floor(ecgBeatPhase);
+    ecgHistory[ecgHead] = heartbeatWaveform(ecgBeatPhase);
+    ecgHead = (ecgHead+1)%ECG_W;
+  }
+
+  const currentPeriod = 60000/heartBPM;
+  const beatPos = (heartPhase%currentPeriod)/currentPeriod;
+  let pulse=0;
+  if (beatPos < 0.08) pulse = Math.sin(beatPos/0.08*Math.PI);
+  else if (beatPos >= 0.15 && beatPos < 0.22) pulse = 0.4*Math.sin((beatPos-0.15)/0.07*Math.PI);
+  const heartAmp = HEART_AMPLITUDE*(1+breathStress*0.8);
+  const heartDy = -pulse*heartAmp;
+
+  driftOx += driftVx;
+  driftOy += driftVy+heartDy;
+
+  let sightX = cx+driftOx+breathDx;
+  let sightY = cy+driftOy+breathDy;
+
+  if (sightX >= RG) { driftOx=RG-1-cx; driftVx=-Math.abs(driftVx); sightX=RG-1; }
+  if (sightX <= LG) { driftOx=LG+1-cx; driftVx=Math.abs(driftVx); sightX=LG+1; }
+  if (sightY >= OG) { driftOy=OG-1-cy; driftVy=-Math.abs(driftVy); sightY=OG-1; }
+  if (sightY <= BG) { driftOy=BG+1-cy; driftVy=Math.abs(driftVy); sightY=BG+1; }
+
+  return {sightX, sightY};
+}
+
+// --- Drawing helpers ---
+function bgiText(text, x, y, color, size) {
+  ctx.fillStyle = color;
+  ctx.font = `${size||11}px monospace`;
+  ctx.fillText(text, x, y);
+}
+
+function fillRect(x1,y1,x2,y2,color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x1, y1, x2-x1, y2-y1);
+}
+
+function drawLine(x1,y1,x2,y2,color,lw) {
+  ctx.strokeStyle=color; ctx.lineWidth=lw||1;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+}
+
+function poly(pts, color) {
+  ctx.fillStyle=color;
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0],pts[0][1]);
+  for (let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0],pts[i][1]);
+  ctx.closePath(); ctx.fill();
+}
+
+// --- RSA Flag polygons (pixel-exact from SAVLAGA-E) ---
+function drawRSAFlag(ox, oy) {
+  // SAVLAGA - red
+  poly([[242+ox,210+oy],[260+ox,225+oy],[310+ox,225+oy],[310+ox,210+oy]],'#AA0000');
+  // SAVLAGB - blue
+  poly([[242+ox,265+oy],[260+ox,250+oy],[310+ox,250+oy],[310+ox,265+oy]],'#0000AA');
+  // SAVLAGC - green
+  poly([[220+ox,210+oy],[235+ox,210+oy],[260+ox,230+oy],[310+ox,230+oy],[310+ox,245+oy],[260+ox,245+oy],[235+ox,265+oy],[220+ox,265+oy],[250+ox,238+oy]],'#00AA00');
+  // SAVLAGD - yellow
+  poly([[220+ox,210+oy],[250+ox,238+oy],[220+ox,265+oy],[220+ox,260+oy],[245+ox,238+oy],[220+ox,215+oy]],'#AAAA00');
+  // SAVLAGE - black
+  poly([[220+ox,215+oy],[245+ox,238+oy],[220+ox,260+oy]],'#000000');
+}
+
+function drawENGFlag(ox, oy) {
+  fillRect(220+ox,275+oy,310+ox,330+oy,'#FFFFFF');
+  fillRect(220+ox,295+oy,310+ox,310+oy,'#AA0000');
+  fillRect(258+ox,275+oy,273+ox,330+oy,'#AA0000');
+}
+
+function drawGERFlag(ox, oy) {
+  fillRect(220+ox,340+oy,310+ox,357+oy,'#000000');
+  fillRect(220+ox,358+oy,310+ox,377+oy,'#AA0000');
+  fillRect(220+ox,378+oy,310+ox,395+oy,'#AAAA00');
+}
+
+function drawUSAFlag(ox, oy) {
+  const fy1=405+oy, fy2=460+oy, fx1=220+ox, fx2=310+ox;
+  const h = fy2-fy1, w = fx2-fx1;
+  const stripeH = h/13;
+  for (let i=0;i<13;i++) {
+    fillRect(fx1, fy1+Math.floor(i*stripeH), fx2, fy1+Math.floor((i+1)*stripeH), i%2===0?'#AA0000':'#FFFFFF');
+  }
+  fillRect(fx1, fy1, fx1+Math.floor(w*0.4), fy1+Math.floor(h*0.54),'#0000AA');
+  ctx.fillStyle='#FFFFFF';
+  ctx.font='5px serif';
+  for (let r=0;r<4;r++) for (let c=0;c<5;c++) {
+    ctx.beginPath();
+    ctx.arc(fx1+6+c*7+(r%2===0?0:3), fy1+5+r*7, 1.5, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+// --- Draw HUD Background ---
+function drawBG() {
+  ctx.fillStyle='#000000';
+  ctx.fillRect(0,0,640,480);
+
+  // Stat bar background (y:0-30)
+  fillRect(0,0,640,30,'#000033');
+
+  // SCRA panels (y:30-160, x:10-310)
+  fillRect(10,30,310,160,'#003300');
+
+  // SCRB panel (y:30-160, x:320-540)
+  fillRect(320,30,540,160,'#003300');
+
+  // Time limit panel (y:30-160, x:550-635)
+  fillRect(550,30,635,160,'#220022');
+
+  // Spotting scope / left panel (y:160-370, x:10-210)
+  fillRect(10,160,210,370,'#222222');
+
+  // Help panel (y:370-470, x:10-210)
+  fillRect(10,370,210,470,'#001100');
+
+  // Flag area (y:160-470, x:220-310)
+  fillRect(220,160,310,470,'#111111');
+
+  // Card area (y:160-470, x:320-635)
+  fillRect(320,160,635,470,'#FFFFFF');
+
+  // Borders (BGI magenta = #FF55FF)
+  const bc = '#FF55FF';
+  drawLine(10,30,310,30,bc); drawLine(10,160,310,160,bc);
+  drawLine(10,370,210,370,bc);
+  drawLine(10,30,10,470,bc); drawLine(210,30,210,470,bc);
+  drawLine(310,30,310,470,bc);
+  drawLine(220,160,220,470,bc);
+  drawLine(320,30,320,470,bc); drawLine(635,30,635,470,bc);
+  drawLine(10,470,635,470,bc); drawLine(10,30,635,30,bc);
+  drawLine(550,30,550,160,bc);
+}
+
+// --- Stat bar (y:0-30) ---
+function drawStatBar() {
+  ctx.font='11px monospace';
+  // NAME box
+  fillRect(10,2,310,28,'#000033');
+  drawLine(10,2,310,2,'#555',1); drawLine(10,28,310,28,'#555',1);
+  ctx.fillStyle='#FFFF55'; ctx.fillText('NAME: ',12,18);
+  ctx.fillStyle='#00FF00'; ctx.fillText(naam,55,18);
+
+  // SPAN box
+  fillRect(320,2,540,28,'#000033');
+  ctx.fillStyle='#FFFF55'; ctx.fillText('TEAM: ',322,18);
+  ctx.fillStyle='#00FF00'; ctx.fillText(span,365,18);
+
+  // TELT box
+  fillRect(550,2,635,28,'#000033');
+  ctx.fillStyle='#FFFF55'; ctx.fillText('TELT: ',552,18);
+  ctx.fillStyle='#00FF00'; ctx.fillText(String(telt),595,18);
+}
+
+// --- SCRA panel (y:30-160, x:10-310) ---
+function drawSCRA() {
+  const team = TEAMS[curt];
+  ctx.font='9px monospace';
+  // Left sub-panel: names
+  fillRect(10,30,160,160,'#003300');
+  ctx.fillStyle='#FFFF55';
+  ctx.fillText('NAME',12,43);
+  drawLine(10,45,160,45,'#005500',1);
+  for (let i=0;i<5;i++) {
+    ctx.fillStyle='#00FF00';
+    ctx.fillText(team.members[i].naam.substring(0,14),12,57+i*20);
+  }
+  // Right sub-panel: scores
+  fillRect(165,30,310,160,'#003300');
+  ctx.fillStyle='#FFFF55';
+  ctx.fillText('B1  B2  B3  TOT',167,43);
+  drawLine(165,45,310,45,'#005500',1);
+  const ai = aiScores[curt];
+  if (ai) {
+    for (let i=0;i<5;i++) {
+      const sc = ai.scores[i];
+      ctx.fillStyle='#00FF00';
+      ctx.fillText(`${sc.b1}  ${sc.b2}  ${sc.b3}  ${sc.total}`,167,57+i*20);
+    }
+  }
+}
+
+// --- SCRB panel (y:30-160, x:320-540) ---
+function drawSCRB() {
+  fillRect(320,30,540,160,'#003300');
+  ctx.font='9px monospace';
+  ctx.fillStyle='#FFFF55';
+  ctx.fillText('TEAM              TOTAL',322,43);
+  drawLine(320,45,540,45,'#005500',1);
+  const teams = [
+    {code:'RSA',name:'SOUTH AFRICA'},
+    {code:'ENG',name:'ENGLAND'},
+    {code:'GER',name:'GERMANY'},
+    {code:'USA',name:'UNITED STATES'},
+  ];
+  for (let i=0;i<4;i++) {
+    const tc = teams[i].code;
+    const ai = aiScores[tc];
+    const score = ai ? ai.total : '---';
+    // Highlight current team
+    if (tc === curt) {
+      fillRect(322,48+i*26,538,62+i*26,'#005500');
+    }
+    ctx.fillStyle = tc===curt ? '#FFFF00' : '#00FF00';
+    ctx.fillText(teams[i].name,322,60+i*26);
+    ctx.fillStyle='#00FF00';
+    ctx.fillText(String(score),490,60+i*26);
+  }
+}
+
+// --- Time limit panel (x:550-635, y:30-160) ---
+function drawTimeLimit() {
+  fillRect(550,30,635,160,'#220022');
+  ctx.font='10px monospace';
+  ctx.fillStyle='#FF55FF';
+  ctx.textAlign='center';
+  ctx.fillText('TIME',592,55);
+  ctx.fillText('LIMIT',592,68);
+  ctx.fillStyle='#00FF00';
+  ctx.font='14px monospace';
+  ctx.fillText('12:49',592,100);
+  ctx.font='9px monospace';
+  ctx.fillStyle='#FFFF55';
+  ctx.fillText(`DIST: ${afstand}m`,592,120);
+  ctx.fillText(`CARD ${card}/${crd}`,592,133);
+  ctx.fillText(`SHOT ${tellers}/${shotTel}`,592,146);
+  ctx.textAlign='left';
+}
+
+// --- Flags panel (x:220-310, y:160-470) ---
+function drawFlags() {
+  fillRect(220,160,310,470,'#111111');
+  ctx.font='8px monospace';
+  ctx.fillStyle='#888888';
+  ctx.textAlign='center';
+
+  // RSA flag y:210-265
+  drawRSAFlag(0,0);
+  if (curt==='RSA') { ctx.strokeStyle='#FFFF00'; ctx.lineWidth=2; ctx.strokeRect(220,210,90,55); }
+
+  // ENG flag y:275-330
+  drawENGFlag(0,0);
+  if (curt==='ENG') { ctx.strokeStyle='#FFFF00'; ctx.lineWidth=2; ctx.strokeRect(220,275,90,55); }
+
+  // GER flag y:340-395
+  drawGERFlag(0,0);
+  if (curt==='GER') { ctx.strokeStyle='#FFFF00'; ctx.lineWidth=2; ctx.strokeRect(220,340,90,55); }
+
+  // USA flag y:405-460
+  drawUSAFlag(0,0);
+  if (curt==='USA') { ctx.strokeStyle='#FFFF00'; ctx.lineWidth=2; ctx.strokeRect(220,405,90,55); }
+
+  // Labels
+  ctx.fillStyle='#AAAAAA';
+  ctx.fillText('RSA',265,225);
+  ctx.fillText('ENG',265,290);
+  ctx.fillText('GER',265,357);
+  ctx.fillText('USA',265,422);
+  ctx.textAlign='left';
+}
+
+// --- Scope panel (x:10-210, y:160-370) ---
+function drawScopePanel() {
+  fillRect(10,160,210,370,'#222222');
+  ctx.fillStyle='#00AA00';
+  ctx.font='10px monospace';
+  ctx.fillText('SPOTTING SCOPE',14,175);
+  drawLine(10,178,210,178,'#005500',1);
+
+  // Scope circle (instrument illustration)
+  ctx.strokeStyle='#444444'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.arc(110,270,50,0,Math.PI*2); ctx.stroke();
+  ctx.strokeStyle='#336633'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(60,270); ctx.lineTo(160,270); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(110,220); ctx.lineTo(110,320); ctx.stroke();
+  ctx.strokeStyle='#555'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(110,270,10,0,Math.PI*2); ctx.stroke();
+
+  // TAB button
+  fillRect(30,340,190,362,'#004400');
+  ctx.fillStyle='#FFFF55'; ctx.font='10px monospace'; ctx.textAlign='center';
+  ctx.fillText('[TAB] SCOPE VIEW',110,354);
+  ctx.textAlign='left';
+}
+
+// --- Scope view (zoomed) ---
+function drawScopeView() {
+  fillRect(10,160,210,370,'#000000');
+  ctx.fillStyle='#00AA00';
+  ctx.font='10px monospace';
+  ctx.fillText('SPOTTING SCOPE',14,175);
+  drawLine(10,178,210,178,'#005500',1);
+
+  const cx0=110, cy0=270, R=45;
+  ctx.fillStyle='#111111';
+  ctx.beginPath(); ctx.arc(cx0,cy0,R,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#00AA00'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.arc(cx0,cy0,R,0,Math.PI*2); ctx.stroke();
+
+  ctx.save(); ctx.beginPath(); ctx.arc(cx0,cy0,R,0,Math.PI*2); ctx.clip();
+
+  // Scope crosshair
+  ctx.strokeStyle='#005500'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(cx0-R,cy0); ctx.lineTo(cx0+R,cy0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx0,cy0-R); ctx.lineTo(cx0,cy0+R); ctx.stroke();
+
+  // Target circles
+  const st = SIGHTERS[scopeTarget];
+  ctx.fillStyle='#333333';
+  ctx.beginPath(); ctx.arc(cx0,cy0,8,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#555555'; ctx.lineWidth=1;
+  for (const r of [3,6,10,14]) {
+    ctx.beginPath(); ctx.arc(cx0,cy0,r,0,Math.PI*2); ctx.stroke();
+  }
+
+  // Plot shots relative to sighter target
+  ctx.fillStyle='#FF0000';
+  for (let i=0;i<aantal-1;i++) {
+    if (shotX[i+1]===0 && shotY[i+1]===0) continue;
+    const sx = cx0+(shotX[i+1]-st.x)*CH;
+    const sy = cy0+(shotY[i+1]-st.y)*CH;
+    ctx.beginPath(); ctx.arc(sx,sy,SK,0,Math.PI*2); ctx.fill();
+  }
+
+  ctx.restore();
+
+  // Label
+  ctx.fillStyle='#FFFF55'; ctx.font='9px monospace'; ctx.textAlign='center';
+  ctx.fillText(`SIGHTER ${scopeTarget+1}  [1][2]`,110,360);
+  ctx.textAlign='left';
+
+  // TAB to close
+  ctx.fillStyle='#888888'; ctx.font='9px monospace'; ctx.textAlign='center';
+  ctx.fillText('[TAB] CLOSE SCOPE',110,372);
+  ctx.textAlign='left';
+}
+
+// --- Help panel (x:10-210, y:370-470) ---
+function drawHelpPanel() {
+  fillRect(10,370,210,470,'#001100');
+  ctx.font='9px monospace';
+  ctx.fillStyle='#00AA00';
+  ctx.fillText('HELP',14,383);
+  drawLine(10,385,210,385,'#005500',1);
+  const lines=[
+    'F1=HELP   F2=NAME',
+    'F3=TEAM   F5/F6/F7=DIST',
+    'F8=PRACTICE  F9=COMPETE',
+    'ARROWs=AIM  SHIFT=HOLD',
+    'ENTER=FIRE  TAB=SCOPE',
+    'ESC=MENU',
+  ];
+  ctx.fillStyle='#FFFF55';
+  for (let i=0;i<lines.length;i++) ctx.fillText(lines[i],14,396+i*12);
+}
+
+// --- Card drawing (x:320-635, y:160-470) ---
+function drawCard() {
+  // White card area
+  fillRect(320,160,635,470,'#FFFFFF');
+
+  // Olive shooting card rectangle
+  fillRect(CARD_X,CARD_Y,535,405,'#AA8800');
+
+  // Target circles (6 total: 2 sighters + 4 scoring)
+  const {targetR, rings} = DIST_VISUAL[afstand];
+  ctx.fillStyle='#555555';
+  for (const t of SIGHTERS) {
+    ctx.beginPath(); ctx.arc(t.x,t.y,targetR,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#333333'; ctx.lineWidth=1;
+    for (const r of rings) {
+      ctx.beginPath(); ctx.arc(t.x,t.y,r,0,Math.PI*2); ctx.stroke();
+    }
+  }
+  for (const t of SCORING_TARGETS) {
+    ctx.fillStyle='#555555';
+    ctx.beginPath(); ctx.arc(t.x,t.y,targetR,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#333333'; ctx.lineWidth=1;
+    for (const r of rings) {
+      ctx.beginPath(); ctx.arc(t.x,t.y,r,0,Math.PI*2); ctx.stroke();
+    }
+  }
+
+  // Dashed separator at y=310
+  ctx.strokeStyle='#888888'; ctx.lineWidth=1;
+  ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(440,310); ctx.lineTo(530,310); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Labels
+  ctx.fillStyle='#444444'; ctx.font='8px monospace'; ctx.textAlign='center';
+  ctx.fillText('SIGHTERS',485,280);
+  ctx.fillText('SCORING SHOTS',485,420);
+  ctx.textAlign='left';
+
+  // Shot dots on card
+  ctx.fillStyle='#000000';
+  for (let i=1;i<aantal;i++) {
+    if (shotX[i]===0 && shotY[i]===0) continue;
+    ctx.beginPath(); ctx.arc(shotX[i],shotY[i],1.5,0,Math.PI*2); ctx.fill();
+  }
+
+  // Counters (bottom of card area)
+  ctx.fillStyle='#333333'; ctx.font='9px monospace';
+  ctx.fillText(`SHOTS: ${tellers}/${shotTel}`,325,455);
+  ctx.textAlign='right';
+  ctx.fillText(`CARD: ${card}/${crd}`,630,455);
+  ctx.textAlign='left';
+
+  // Score label
+  ctx.fillStyle='#003300'; ctx.font='9px monospace'; ctx.textAlign='center';
+  ctx.fillText(`CARD SCORE: ${telling}`,485,440);
+  ctx.fillText(afstand==='100' ? '100y' : `${afstand}m`, 480, 430);
+  ctx.textAlign='left';
+}
+
+// --- Crosshair ---
+function drawCrosshair(x, y) {
+  ctx.strokeStyle='#FFFFFF'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(x,y,GR,0,Math.PI*2); ctx.stroke();
+  const len=8;
+  ctx.beginPath();
+  ctx.moveTo(x-GR-len,y); ctx.lineTo(x-GR+len,y);
+  ctx.moveTo(x+GR-len,y); ctx.lineTo(x+GR+len,y);
+  ctx.moveTo(x,y-GR-len); ctx.lineTo(x,y-GR+len);
+  ctx.moveTo(x,y+GR-len); ctx.lineTo(x,y+GR+len);
+  ctx.stroke();
+  ctx.fillStyle='#FFFFFF';
+  ctx.beginPath(); ctx.arc(x,y,2,0,Math.PI*2); ctx.fill();
+}
+
+// --- Full HUD ---
+function drawHUD() {
+  drawBG();
+  drawStatBar();
+  drawSCRA();
+  drawSCRB();
+  drawTimeLimit();
+  drawFlags();
+  if (scopeActive) drawScopeView();
+  else drawScopePanel();
+  drawHelpPanel();
+  drawCard();
+}
+
+// --- Opening Screen ---
+function drawOpening() {
+  ctx.fillStyle='#006600';
+  ctx.fillRect(0,0,640,480);
+
+  ctx.textAlign='center';
+  ctx.fillStyle='#FFFF55';
+  ctx.font='bold 24px monospace';
+  ctx.fillText('SMALL BORE SHOOTING',320,80);
+  ctx.fillStyle='#FFFFFF';
+  ctx.font='18px monospace';
+  ctx.fillText('QUADRANGULAR CHAMPIONSHIPS',320,115);
+  ctx.fillStyle='#00FF00';
+  ctx.font='14px monospace';
+  ctx.fillText('BISLEY SHOOTING RANGE, ENGLAND',320,145);
+
+  // Mini flags
+  drawRSAFlag(-220+140, -210+260);
+  drawENGFlag(-220+140, -275+320);
+  drawGERFlag(-220+140, -340+380);
+  drawUSAFlag(-220+140, -405+440);
+
+  ctx.fillStyle='#FFFFFF'; ctx.font='12px monospace';
+  ctx.fillText('SOUTH AFRICA',200,270);
+  ctx.fillText('ENGLAND',200,335);
+  ctx.fillText('GERMANY',200,395);
+  ctx.fillText('UNITED STATES',200,450);
+
+  ctx.fillStyle='#888888'; ctx.font='11px monospace';
+  ctx.fillText('PROGRAMMED BY NICO GERBER - 1997',320,175);
+
+  ctx.fillStyle='#FFFF55'; ctx.font='13px monospace';
+  ctx.fillText('PRESS ANY KEY TO START',320,200);
+
+  ctx.textAlign='left';
+}
+
+// --- Menu Screen ---
+function drawMenu() {
+  drawHUD();
+  // Draw semi-transparent overlay on left panel for menu options
+  ctx.fillStyle='rgba(0,0,0,0.75)';
+  ctx.fillRect(10,160,210,210);
+
+  ctx.font='10px monospace';
+  ctx.fillStyle='#FFFF55'; ctx.textAlign='center';
+  ctx.fillText('─── MENU ───',110,175);
+  ctx.textAlign='left';
+
+  const items=[
+    {key:'F2', label:'NAME'},
+    {key:'F3', label:'TEAM: '+span.substring(0,12)},
+    {key:'F5', label:'DIST: 25m', sel: afstand==='25'},
+    {key:'F6', label:'DIST: 50m', sel: afstand==='50'},
+    {key:'F7', label:'DIST: 100m',sel: afstand==='100'},
+    {key:'F8', label:'PRACTICE'},
+    {key:'F9', label:'COMPETE'},
+    {key:'ESC',label:'EXIT'},
+  ];
+  for (let i=0;i<items.length;i++) {
+    const it=items[i];
+    if (it.sel) { fillRect(12,182+i*23,208,201+i*23,'#005500'); }
+    ctx.fillStyle=it.sel?'#FFFF00':'#00FF00';
+    ctx.font='9px monospace';
+    ctx.fillText(`[${it.key}] ${it.label}`,14,196+i*23);
+  }
+}
+
+// --- Results Overlay ---
+function drawResults() {
+  ctx.fillStyle='rgba(0,0,100,0.92)';
+  ctx.fillRect(100,120,440,240);
+  ctx.strokeStyle='#FF55FF'; ctx.lineWidth=2;
+  ctx.strokeRect(100,120,440,240);
+
+  ctx.textAlign='center';
+  ctx.fillStyle='#FFFFFF'; ctx.font='18px monospace';
+  ctx.fillText('CARD COMPLETE',320,155);
+
+  ctx.fillStyle='#FFFF55'; ctx.font='13px monospace';
+  ctx.fillText(`CARD ${card-1} SCORE: ${telling}`,320,190);
+
+  ctx.fillStyle='#00FF00'; ctx.font='13px monospace';
+  ctx.fillText(`RUNNING TOTAL: ${telt}`,320,215);
+
+  ctx.fillStyle='#AAAAAA'; ctx.font='11px monospace';
+  if (card <= crd) {
+    ctx.fillText(`CARD ${card} OF ${crd} NEXT`,320,250);
+    ctx.fillText('PRESS ANY KEY TO CONTINUE',320,270);
+  } else {
+    ctx.fillText('ALL CARDS COMPLETE',320,250);
+    ctx.fillText('PRESS ANY KEY TO CONTINUE',320,270);
+  }
+  ctx.textAlign='left';
+}
+
+// --- Standings Screen ---
+function drawStandings() {
+  ctx.fillStyle='#000033';
+  ctx.fillRect(0,0,640,480);
+  ctx.strokeStyle='#FF55FF'; ctx.lineWidth=2;
+  ctx.strokeRect(10,10,620,460);
+
+  ctx.textAlign='center';
+  ctx.fillStyle='#FFFF55'; ctx.font='bold 18px monospace';
+  ctx.fillText('FINAL STANDINGS',320,45);
+  ctx.fillStyle='#FFFFFF'; ctx.font='13px monospace';
+  ctx.fillText('SA QUADRANGULAR BISLEY CHAMPIONSHIP',320,68);
+  drawLine(30,75,610,75,'#FF55FF',1);
+
+  // Table header
+  ctx.fillStyle='#FFFF55'; ctx.font='11px monospace';
+  ctx.fillText('TEAM',200,100);
+  ctx.fillText('SCORE',430,100);
+  ctx.fillText('RANK',540,100);
+  drawLine(30,105,610,105,'#555555',1);
+
+  // Build standings list
+  const entries=[];
+  for (const code of TEAM_ORDER) {
+    const ai=aiScores[code];
+    const score = code===curt ? telt : (ai?ai.total:0);
+    entries.push({code,name:TEAMS[code].name,score,isPlayer:code===curt});
+  }
+  entries.sort((a,b)=>b.score-a.score);
+
+  for (let i=0;i<entries.length;i++) {
+    const e=entries[i];
+    const y=130+i*50;
+    if (e.isPlayer) { fillRect(30,y-16,610,y+8,'#003300'); }
+    ctx.fillStyle=e.isPlayer?'#FFFF00':'#00FF00';
+    ctx.font=(e.isPlayer?'bold ':'')+'12px monospace';
+    ctx.fillText(e.name,200,y);
+    ctx.fillText(String(e.score),430,y);
+    ctx.fillText(`${i+1}${i===0?'st':i===1?'nd':i===2?'rd':'th'}`,540,y);
+    if (e.isPlayer) {
+      ctx.fillStyle='#AAAAAA'; ctx.font='10px monospace';
+      ctx.fillText('(YOUR TEAM)',200,y+14);
+    }
+  }
+
+  drawLine(30,345,610,345,'#555555',1);
+  ctx.fillStyle='#888888'; ctx.font='11px monospace';
+  ctx.fillText('PRESS ANY KEY TO RETURN TO MENU',320,380);
+  ctx.textAlign='left';
+}
+
+// --- Help Overlay ---
+function drawHelpOverlay() {
+  ctx.fillStyle='rgba(0,0,80,0.95)';
+  ctx.fillRect(80,60,480,360);
+  ctx.strokeStyle='#FF55FF'; ctx.lineWidth=2;
+  ctx.strokeRect(80,60,480,360);
+
+  ctx.textAlign='center';
+  ctx.fillStyle='#FFFF55'; ctx.font='14px monospace';
+  ctx.fillText('HELP — SA QUADRANGULAR BISLEY',320,90);
+  drawLine(90,98,550,98,'#555555',1);
+
+  const lines=[
+    ['MOVEMENT',''],
+    ['[ARROWS]','Move aim (fine)'],
+    ['[SHIFT]','Hold breath'],
+    ['[ENTER/SPACE]','Fire shot'],
+    ['[TAB]','Toggle spotting scope'],
+    ['[1][2]','Switch sighter (scope)'],
+    ['',''],
+    ['MENU',''],
+    ['[F2]','Enter name'],
+    ['[F3]','Cycle team'],
+    ['[F5/F6/F7]','Distance 25/50/100m'],
+    ['[F8]','Practice mode'],
+    ['[F9]','Competition mode'],
+    ['[ESC]','Return to menu'],
+  ];
+
+  ctx.textAlign='left';
+  ctx.font='10px monospace';
+  let ly=116;
+  for (const [k,v] of lines) {
+    if (!v) {
+      ctx.fillStyle='#FFFF55'; ctx.font='bold 10px monospace';
+      ctx.fillText(k,90,ly);
+      ctx.font='10px monospace';
+    } else {
+      ctx.fillStyle='#00FF00';
+      ctx.fillText(k,90,ly);
+      ctx.fillStyle='#CCCCCC';
+      ctx.fillText(v,220,ly);
+    }
+    ly+=17;
+  }
+
+  ctx.fillStyle='#888888'; ctx.font='10px monospace'; ctx.textAlign='center';
+  ctx.fillText('Press any key to close',320,400);
+  ctx.textAlign='left';
+}
+
+// --- Session reset ---
+function startSession() {
+  const cfg=DIST_CONFIG[afstand];
+  crd=cfg.crd; shotTel=cfg.shotTel;
+  shotX=new Array(RONTES+1).fill(0);
+  shotY=new Array(RONTES+1).fill(0);
+  aantal=1; tellers=0; card=1;
+  tela=0; telb=0; telc=0; telt=0; telling=0;
+  cx=START_X; cy=START_Y;
+  driftOx=0; driftOy=0; driftVx=0; driftVy=0;
+  flashAlpha=0;
+  breathPhase=0; breathHolding=false; breathStress=0;
+  breathRecovering=false; breathCurrentDx=0; breathCurrentDy=0;
+  heartBPM=60; heartBPMTarget=60; heartPhase=0;
+  scopeActive=false; scopeTarget=0;
+}
+
+function startCard() {
+  shotX=new Array(RONTES+1).fill(0);
+  shotY=new Array(RONTES+1).fill(0);
+  aantal=1; tellers=0; telling=0;
+  cx=START_X; cy=START_Y;
+  driftOx=0; driftOy=0; driftVx=0; driftVy=0;
+  scopeActive=false;
+}
+
+function fireShot(sightX, sightY) {
+  if (aantal > RONTES) return;
+  shotX[aantal]=Math.round(sightX);
+  shotY[aantal]=Math.round(sightY);
+
+  // Check if scoring zone
+  const inZone = sightX>=ZONE_X1 && sightX<=ZONE_X2 && sightY>=ZONE_Y1 && sightY<=ZONE_Y2;
+  if (inZone) tellers++;
+
+  playFire();
+  flashAlpha=1.0; flashX=Math.round(sightX); flashY=Math.round(sightY);
+
+  // Recalc score from all shots so far (gather into array)
+  const shots=[];
+  for (let i=1;i<=aantal;i++) shots.push({x:shotX[i],y:shotY[i]});
+  telling = afstand === '25' ? score25(shots) : score50(shots);
+
+  aantal++;
+
+  if (tellers >= shotTel) {
+    // Card complete
+    if (card===1) tela=telling;
+    else if (card===2) telb=telling;
+    else if (card===3) telc=telling;
+    telt=tela+telb+telc;
+
+    playChime();
+
+    const completedCard=card;
+    card++;
+
+    if (card > crd) {
+      // All cards done
+      state='results_final';
+    } else {
+      state='results';
+    }
+  }
+}
+
+// --- Input Handling ---
+document.getElementById('input-name').addEventListener('keydown',(e)=>{
+  if (e.key==='Enter') {
+    const v=document.getElementById('input-name').value.trim().toUpperCase();
+    if (v) naam=v;
+    document.getElementById('overlay-name').classList.remove('active');
+    canvas.focus();
+    state='menu';
+  } else if (e.key==='Escape') {
+    document.getElementById('overlay-name').classList.remove('active');
+    canvas.focus();
+    state='menu';
+  }
+});
+
+let sightXCurrent=START_X, sightYCurrent=START_Y;
+
+document.addEventListener('keydown',(e)=>{
+  if (e.key==='F11') { e.preventDefault(); toggleFullscreen(); return; }
+  // Don't intercept when name input is active
+  if (document.getElementById('overlay-name').classList.contains('active')) return;
+
+  // Shift = hold breath (shooting state)
+  if (e.key==='Shift' && state==='shooting' && !breathHolding) {
+    breathHolding=true;
+    breathHoldStart=performance.now();
+    breathHoldPhase=(breathPhase%BREATH_PERIOD)/BREATH_PERIOD;
+    const bwStart=breathingWaveform(breathHoldPhase);
+    breathHoldStartDx=bwStart.x; breathHoldStartDy=bwStart.y;
+    breathHoldQuality=1-Math.min(Math.abs(breathHoldPhase-0.45)/0.45,1);
+    breathHoldRestDx=breathHoldStartDx*0.9;
+    breathHoldRestDy=breathHoldStartDy*(0.7+0.3*breathHoldQuality);
+    return;
+  }
+
+  keys[e.key]=true;
+
+  if (state==='opening') {
+    state='menu';
+    ensureAudio();
+    return;
+  }
+
+  if (state==='menu') {
+    e.preventDefault();
+    if (e.key==='F2') {
+      state='input_name';
+      const ov=document.getElementById('overlay-name');
+      const inp=document.getElementById('input-name');
+      ov.classList.add('active');
+      inp.value=naam==='NAME'?'':naam;
+      inp.focus();
+    } else if (e.key==='F3') {
+      const idx=(TEAM_ORDER.indexOf(curt)+1)%TEAM_ORDER.length;
+      curt=TEAM_ORDER[idx];
+      span=TEAMS[curt].name;
+    } else if (e.key==='F5') {
+      afstand='25';
+    } else if (e.key==='F6') {
+      afstand='50';
+    } else if (e.key==='F7') {
+      afstand='100';
+    } else if (e.key==='F8') {
+      kompx=false;
+      aiScores={};
+      startSession();
+      state='shooting';
+    } else if (e.key==='F9') {
+      kompx=true;
+      aiScores={};
+      for (const code of TEAM_ORDER) aiScores[code]=calc(code);
+      startSession();
+      state='shooting';
+    } else if (e.key==='Escape') {
+      state='opening';
+    }
+    return;
+  }
+
+  if (state==='shooting') {
+    e.preventDefault();
+    switch(e.key) {
+      case 'ArrowUp':    cy-=XD; break;
+      case 'ArrowDown':  cy+=XD; break;
+      case 'ArrowLeft':  cx-=XD; break;
+      case 'ArrowRight': cx+=XD; break;
+      case 'w': case 'W': cy-=40; break;
+      case 's': case 'S': cy+=40; break;
+      case 'a': case 'A': cx-=40; break;
+      case 'd': case 'D': cx+=40; break;
+      case 'Enter': case ' ':
+        fireShot(sightXCurrent, sightYCurrent);
+        break;
+      case 'Tab':
+        scopeActive=!scopeActive;
+        playTone(50,30);
+        break;
+      case '1':
+        if (scopeActive) scopeTarget=0;
+        break;
+      case '2':
+        if (scopeActive) scopeTarget=1;
+        break;
+      case 'F1':
+        prevState='shooting'; state='help';
+        break;
+      case 'Escape':
+        state='menu';
+        break;
+    }
+    // Clamp center point
+    let bounced=false;
+    if (cx>RG) {cx=RG;bounced=true;} if (cx<LG) {cx=LG;bounced=true;}
+    if (cy>OG) {cy=OG;bounced=true;} if (cy<BG) {cy=BG;bounced=true;}
+    if (bounced) playTone(200,50);
+    return;
+  }
+
+  if (state==='results' || state==='results_final') {
+    if (state==='results') {
+      startCard();
+      state='shooting';
+    } else {
+      // results_final
+      if (kompx) state='standings';
+      else state='menu';
+    }
+    return;
+  }
+
+  if (state==='standings') {
+    state='menu';
+    return;
+  }
+
+  if (state==='help') {
+    state=prevState;
+    return;
+  }
+});
+
+document.addEventListener('keyup',(e)=>{
+  delete keys[e.key];
+  if (e.key==='Shift' && breathHolding) {
+    breathHolding=false;
+    breathRecovering=true;
+    breathRecoverStart=performance.now();
+    heartBPMTarget=60;
+  }
+});
+
+// --- Game Loop ---
+function gameLoop(timestamp) {
+  if (!lastFrameTime) lastFrameTime=timestamp;
+  const dt=Math.min(timestamp-lastFrameTime, 50);
+  lastFrameTime=timestamp;
+
+  if (state==='opening') {
+    drawOpening();
+  } else if (state==='menu') {
+    drawMenu();
+  } else if (state==='shooting') {
+    const {sightX,sightY}=updatePhysics(dt);
+    sightXCurrent=sightX; sightYCurrent=sightY;
+
+    if (flashAlpha>0) { flashAlpha-=dt/100; if (flashAlpha<0) flashAlpha=0; }
+
+    drawHUD();
+    drawCrosshair(sightX,sightY);
+
+    // Muzzle flash
+    if (flashAlpha>0) {
+      const grad=ctx.createRadialGradient(flashX,flashY,0,flashX,flashY,40);
+      grad.addColorStop(0,`rgba(255,255,255,${flashAlpha})`);
+      grad.addColorStop(0.4,`rgba(255,255,100,${flashAlpha*0.5})`);
+      grad.addColorStop(1,'rgba(255,160,0,0)');
+      ctx.fillStyle=grad;
+      ctx.fillRect(flashX-40,flashY-40,80,80);
+    }
+  } else if (state==='results' || state==='results_final') {
+    drawHUD();
+    drawResults();
+  } else if (state==='standings') {
+    drawStandings();
+  } else if (state==='help') {
+    drawHUD();
+    drawHelpOverlay();
+  } else if (state==='input_name') {
+    drawMenu();
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// --- Fullscreen ---
+const gameContainer=document.getElementById('game-container');
+function toggleFullscreen() {
+  if (!document.fullscreenElement) gameContainer.requestFullscreen().catch(()=>{});
+  else document.exitFullscreen();
+}
+document.addEventListener('fullscreenchange',()=>{
+  if (document.fullscreenElement) {
+    gameContainer.classList.add('fullscreen');
+    const vw=window.innerWidth, vh=window.innerHeight;
+    const aspect=640/480;
+    let w,h;
+    if (vw/vh>aspect) {h=vh;w=h*aspect;} else {w=vw;h=w/aspect;}
+    canvas.style.width=w+'px'; canvas.style.height=h+'px';
+  } else {
+    gameContainer.classList.remove('fullscreen');
+    canvas.style.width=''; canvas.style.height='';
+  }
+});
+
+// --- Start ---
+canvas.setAttribute('tabindex','0');
+canvas.focus();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
