@@ -135,7 +135,7 @@ The crosshair position = **center point** + **drift offset**.
 
 **Breathing rhythm** (dominant disturbance in prone):
 - 4-second cycle (15 breaths/min): inhale (0–40%), natural pause (40–50%), exhale (50–100%)
-- Adds vertical sway (±12px) and horizontal sway (±1px) to crosshair — chest rise/fall is the primary motion, large enough to force the player to hold breath for accurate shots
+- Inhale lowers the sight (+25px down, +4px right diagonal), exhale raises it back to center — chest rise/fall is the primary motion, large enough to force the player to hold breath for accurate shots
 - Natural pause at 40–50% of cycle is the ideal moment to hold breath and fire
 - **Hold breath** (Shift): gradually settles crosshair toward a rest point over ~500ms (smoothstep easing)
   - **Timing reward**: hold quality depends on breath cycle phase at press time. Pressing near the natural pause (0.45 in cycle) yields near-zero residual displacement; pressing at the worst point leaves ~3.6px offset

@@ -175,8 +175,8 @@ let heartBPMTarget = 60;                // what BPM is trending toward
 
 // Breathing rhythm
 const BREATH_PERIOD = 4000;          // 4s per breath (15 breaths/min)
-const BREATH_AMPLITUDE_Y = 12.0;    // vertical sway (px) — dominant in prone, forces breath-hold
-const BREATH_AMPLITUDE_X = 1.0;     // horizontal sway (px) — slight lateral movement
+const BREATH_AMPLITUDE_Y = 25.0;    // vertical sway (px) — dominant in prone, forces breath-hold
+const BREATH_AMPLITUDE_X = 4.0;     // horizontal sway (px) — slight lateral diagonal movement
 const BREATH_HOLD_MAX = 4000;       // comfortable hold duration (ms) — prone is stable
 const BREATH_RECOVERY_TIME = 2000;  // recovery after release (ms)
 
@@ -337,19 +337,20 @@ function heartbeatWaveform(t) {
 function breathingWaveform(t) {
   // t = 0..1 within one breath cycle
   // Returns {x, y} displacement
-  // 0.0–0.4: inhale (rising), 0.4–0.5: natural pause, 0.5–1.0: exhale (falling)
+  // 0.0–0.4: inhale (sight lowers), 0.4–0.5: natural pause (sight at bottom),
+  // 0.5–1.0: exhale (sight rises back to center)
   let dy, dx;
   if (t < 0.4) {
     const e = (1 - Math.cos(t / 0.4 * Math.PI)) / 2;
-    dy = -e * BREATH_AMPLITUDE_Y;
-    dx = Math.sin(t / 0.4 * Math.PI) * BREATH_AMPLITUDE_X * 0.5;
+    dy = e * BREATH_AMPLITUDE_Y;
+    dx = e * BREATH_AMPLITUDE_X;
   } else if (t < 0.5) {
-    dy = -BREATH_AMPLITUDE_Y;
-    dx = 0;
+    dy = BREATH_AMPLITUDE_Y;
+    dx = BREATH_AMPLITUDE_X;
   } else {
     const e = (1 - Math.cos((t - 0.5) / 0.5 * Math.PI)) / 2;
-    dy = -(1 - e) * BREATH_AMPLITUDE_Y;
-    dx = -Math.sin((t - 0.5) / 0.5 * Math.PI * 0.7) * BREATH_AMPLITUDE_X * 0.3;
+    dy = (1 - e) * BREATH_AMPLITUDE_Y;
+    dx = (1 - e) * BREATH_AMPLITUDE_X;
   }
   return { x: dx, y: dy };
 }
@@ -399,8 +400,8 @@ function drawBreathIndicator(x, y, w, h) {
     breathT = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
   }
   const bw = breathingWaveform(breathT);
-  // Map dy from [-BREATH_AMPLITUDE_Y, 0] to fill [1, 0]
-  const fillLevel = Math.max(0, Math.min(1, -bw.y / BREATH_AMPLITUDE_Y));
+  // Map dy from [0, +BREATH_AMPLITUDE_Y] to fill [0, 1]
+  const fillLevel = Math.max(0, Math.min(1, bw.y / BREATH_AMPLITUDE_Y));
 
   // Choose color based on state
   let barColor;
@@ -844,7 +845,7 @@ document.addEventListener('keydown', (e) => {
     // Timing reward: how close to natural pause (0.4–0.5)?
     breathHoldQuality = 1 - Math.min(Math.abs(breathHoldPhase - 0.45) / 0.45, 1);
     breathHoldRestDx = 0;
-    breathHoldRestDy = -BREATH_AMPLITUDE_Y * (1 - breathHoldQuality) * 0.3;
+    breathHoldRestDy = BREATH_AMPLITUDE_Y * (1 - breathHoldQuality) * 0.3;
     return;
   }
 
@@ -1057,9 +1058,9 @@ function gameLoop(timestamp) {
       } else if (breathRecovering) {
         const recElapsed = performance.now() - breathRecoveryStart;
         if (recElapsed < 400) {
-          // Gasp phase: quick involuntary inhale — crosshair jumps up
+          // Gasp phase: quick involuntary inhale — crosshair jumps down
           const gaspT = recElapsed / 400;
-          breathDy = -8 * Math.sin(gaspT * Math.PI);
+          breathDy = 8 * Math.sin(gaspT * Math.PI);
           breathDx = 0;
         } else {
           // After gasp: exaggerated breathing fading to normal (1.5× → 1×)
