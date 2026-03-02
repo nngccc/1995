@@ -168,10 +168,10 @@ const DRIFT_MAX_SPEED = 0.5;   // Max drift speed (px per frame) — low for pro
 const DRIFT_ACCEL = 0.06;      // How quickly drift direction changes — sling dampens
 
 // Heartbeat pulse effect
-const HEART_BPM = 60;
-const HEART_PERIOD = 60000 / HEART_BPM; // ms per beat
 const HEART_AMPLITUDE = 3.5;            // px displacement per pulse — prone transmits more
 let heartPhase = 0;                     // accumulated phase in ms
+let heartBPM = 60;                      // current BPM (dynamic)
+let heartBPMTarget = 60;                // what BPM is trending toward
 
 // Breathing rhythm
 const BREATH_PERIOD = 4000;          // 4s per breath (15 breaths/min)
@@ -189,6 +189,11 @@ let breathRecoveryStart = 0;
 let breathStress = 0;               // 0..1, ramps up when over-holding
 let breathCurrentDx = 0;            // current frame breathing X displacement
 let breathCurrentDy = 0;            // current frame breathing Y displacement
+let breathHoldStartDx = 0;          // waveform displacement at moment Shift pressed
+let breathHoldStartDy = 0;
+let breathHoldRestDx = 0;           // settle target based on hold timing quality
+let breathHoldRestDy = 0;
+let breathHoldQuality = 0;          // 0..1, how well timed the hold was
 
 // Intro animation state
 let introStep = 0;
@@ -359,15 +364,16 @@ function drawHeartbeatChart(x, y, w, h) {
 
   // Draw the scrolling ECG trace
   const now = heartPhase;
+  const ecgPeriod = 60000 / heartBPM;
   ctx.strokeStyle = '#f00';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   const steps = w;
   for (let i = 0; i < steps; i++) {
     // Each pixel = a slice of time; show ~2 beats worth
-    const timeSpan = HEART_PERIOD * 2;
+    const timeSpan = ecgPeriod * 2;
     const tMs = now - timeSpan + (i / steps) * timeSpan;
-    const beatT = ((tMs % HEART_PERIOD) + HEART_PERIOD) % HEART_PERIOD / HEART_PERIOD;
+    const beatT = ((tMs % ecgPeriod) + ecgPeriod) % ecgPeriod / ecgPeriod;
     const val = heartbeatWaveform(beatT);
     const px = x + i;
     const py = y - val * (h / 2) * 0.85;
@@ -831,6 +837,14 @@ document.addEventListener('keydown', (e) => {
     breathHolding = true;
     breathHoldStart = performance.now();
     breathHoldPhase = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
+    // Capture current waveform displacement at press time
+    const bwStart = breathingWaveform(breathHoldPhase);
+    breathHoldStartDx = bwStart.x;
+    breathHoldStartDy = bwStart.y;
+    // Timing reward: how close to natural pause (0.4–0.5)?
+    breathHoldQuality = 1 - Math.min(Math.abs(breathHoldPhase - 0.45) / 0.45, 1);
+    breathHoldRestDx = 0;
+    breathHoldRestDy = -BREATH_AMPLITUDE_Y * (1 - breathHoldQuality) * 0.3;
     return;
   }
 
@@ -955,6 +969,8 @@ document.addEventListener('keyup', (e) => {
     breathHolding = false;
     breathRecovering = true;
     breathRecoveryStart = performance.now();
+    // Heart rate target back to resting on release
+    heartBPMTarget = 60;
   }
 });
 
@@ -979,6 +995,13 @@ function resetGame() {
   breathStress = 0;
   breathCurrentDx = 0;
   breathCurrentDy = 0;
+  breathHoldStartDx = 0;
+  breathHoldStartDy = 0;
+  breathHoldRestDx = 0;
+  breathHoldRestDy = 0;
+  breathHoldQuality = 0;
+  heartBPM = 60;
+  heartBPMTarget = 60;
 }
 
 // --- Game Loop ---
@@ -1012,33 +1035,46 @@ function gameLoop(timestamp) {
         if (holdElapsed > BREATH_HOLD_MAX) {
           // Over-holding: ramp stress from 0→1 over 2s past limit
           breathStress = Math.min(1, (holdElapsed - BREATH_HOLD_MAX) / 2000);
+          // Heart rate ramps up with stress during over-hold (delayed onset — no HR increase in first ~0.5s past limit)
+          const hrStress = Math.max(0, (breathStress - 0.25) / 0.75);
+          heartBPMTarget = 60 + hrStress * 40;
         } else {
           breathStress = 0;
         }
-        // Freeze waveform at hold phase
-        const bw = breathingWaveform(breathHoldPhase);
-        breathDx = bw.x;
-        breathDy = bw.y;
-        // Add tremor when stressed
+        // Gradual settle from start position to rest point over 500ms
+        const settleProgress = Math.min(1, holdElapsed / 500);
+        // Smoothstep easing
+        const eased = settleProgress * settleProgress * (3 - 2 * settleProgress);
+        breathDx = breathHoldStartDx + (breathHoldRestDx - breathHoldStartDx) * eased;
+        breathDy = breathHoldStartDy + (breathHoldRestDy - breathHoldStartDy) * eased;
+        // Add slow circular wobble when stressed (replaces 15Hz tremor)
         if (breathStress > 0) {
-          const tremor = breathStress * 2.0;
-          const tremorFreq = performance.now() / 1000 * 15 * Math.PI * 2;
-          breathDx += Math.sin(tremorFreq) * tremor;
-          breathDy += Math.cos(tremorFreq * 1.3) * tremor;
+          const wobbleFreq = performance.now() / 1000 * 2 * Math.PI * 2;
+          const wobbleAmp = breathStress * 4.0;
+          breathDx += Math.sin(wobbleFreq) * wobbleAmp;
+          breathDy += Math.cos(wobbleFreq * 0.7) * wobbleAmp * 1.2;
         }
       } else if (breathRecovering) {
         const recElapsed = performance.now() - breathRecoveryStart;
-        const recProgress = Math.min(1, recElapsed / BREATH_RECOVERY_TIME);
-        // Exaggerated breathing fading to normal (1.5× → 1×)
-        const ampMul = 1.5 - 0.5 * recProgress;
-        breathStress = breathStress * (1 - recProgress);
-        const breathT = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
-        const bw = breathingWaveform(breathT);
-        breathDx = bw.x * ampMul;
-        breathDy = bw.y * ampMul;
-        if (recProgress >= 1) {
-          breathRecovering = false;
-          breathStress = 0;
+        if (recElapsed < 400) {
+          // Gasp phase: quick involuntary inhale — crosshair jumps up
+          const gaspT = recElapsed / 400;
+          breathDy = -8 * Math.sin(gaspT * Math.PI);
+          breathDx = 0;
+        } else {
+          // After gasp: exaggerated breathing fading to normal (1.5× → 1×)
+          const adjustedElapsed = recElapsed - 400;
+          const recProgress = Math.min(1, adjustedElapsed / BREATH_RECOVERY_TIME);
+          const ampMul = 1.5 - 0.5 * recProgress;
+          breathStress = breathStress * (1 - recProgress);
+          const breathT = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
+          const bw = breathingWaveform(breathT);
+          breathDx = bw.x * ampMul;
+          breathDy = bw.y * ampMul;
+          if (recProgress >= 1) {
+            breathRecovering = false;
+            breathStress = 0;
+          }
         }
       } else {
         // Normal breathing
@@ -1046,6 +1082,14 @@ function gameLoop(timestamp) {
         const bw = breathingWaveform(breathT);
         breathDx = bw.x;
         breathDy = bw.y;
+      }
+
+      // Heart rate smoothly chases target (asymmetric: ramp-up slower, recovery even slower)
+      const hrChaseRate = heartBPMTarget > heartBPM ? 0.0004 : 0.0002;
+      heartBPM += (heartBPMTarget - heartBPM) * hrChaseRate * dt;
+      // During normal breathing, target resting rate
+      if (!breathHolding) {
+        heartBPMTarget = 60;
       }
 
       // Store for shot position calculation
@@ -1072,7 +1116,8 @@ function gameLoop(timestamp) {
 
       // Heartbeat pulse — sharp upward kick then decay, like a real pulse
       heartPhase += dt;
-      const beatPos = (heartPhase % HEART_PERIOD) / HEART_PERIOD; // 0..1 within beat
+      const currentHeartPeriod = 60000 / heartBPM;
+      const beatPos = (heartPhase % currentHeartPeriod) / currentHeartPeriod; // 0..1 within beat
       // Double-bump waveform (like a real heartbeat: systole + dicrotic notch)
       let pulse = 0;
       if (beatPos < 0.08) {
