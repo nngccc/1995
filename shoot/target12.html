@@ -478,12 +478,17 @@ function drawScorecard() {
   ctx.textAlign = 'center';
   ctx.fillText('S.A.N.S.S.U. 01', 320, 460);
 
+  // Compute shot counts (needed for labels and counter)
+  const shotsUsed = Math.min(aantal - 1, RONTES);
+  const scoring = countScoringShots();
+
   // Labels
   ctx.font = '11px serif';
   ctx.textAlign = 'left';
   ctx.fillStyle = COL.crosshair;
   ctx.fillText('NAAM ........................', 40, 460);
   ctx.fillText('KOMP ..................', 450, 460);
+  ctx.fillText(`Skote: ${scoring}/10`, 40, 208);
   ctx.fillText('TOTAAL', 40, 220);
   ctx.fillText('......', 40, 235);
   ctx.fillText('SPAN', 560, 220);
@@ -507,9 +512,7 @@ function drawScorecard() {
   ctx.fillStyle = '#fff';
   ctx.font = '11px monospace';
   ctx.textAlign = 'right';
-  const shotsUsed = Math.min(aantal - 1, RONTES);
-  const scoring = countScoringShots();
-  ctx.fillText(`Skote: ${scoring}/10  (${shotsUsed}/${RONTES})`, 630, 15);
+  ctx.fillText(`${shotsUsed}/${RONTES}`, 630, 15);
   ctx.textAlign = 'left';
 }
 
