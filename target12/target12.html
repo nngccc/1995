@@ -182,7 +182,7 @@ let ecgAccumMs = 0;                     // ms accumulated since last ecg sample
 let ecgBeatPhase = 0;                   // 0..1 phase within current beat cycle
 
 // Breathing rhythm
-const BREATH_PERIOD = 4000;          // 4s per breath (15 breaths/min)
+const BREATH_PERIOD = 5000;          // 5s per breath (12 breaths/min)
 const BREATH_AMPLITUDE_Y = 25.0;    // vertical sway (px) — dominant in prone, forces breath-hold
 const BREATH_AMPLITUDE_X = 4.0;     // horizontal sway (px) — slight lateral diagonal movement
 const BREATH_HOLD_MAX = 4000;       // comfortable hold duration (ms) — prone is stable
@@ -784,15 +784,6 @@ document.addEventListener('keydown', (e) => {
 
   keys[e.key] = true;
 
-  if (state === 'intro') {
-    if (e.key === '6') {
-      state = 'help';
-    } else {
-      state = 'shooting';
-    }
-    return;
-  }
-
   if (state === 'help') {
     state = 'shooting';
     return;
@@ -1144,6 +1135,12 @@ function updateIntro(timestamp) {
   if (introStep === 2 && elapsed > 3500) {
     introStep = 3;
     playFire();
+  }
+
+  if (elapsed > 5500) {
+    state = 'shooting';
+    introTimer = 0;
+    introStep = 0;
   }
 }
 
