@@ -14,16 +14,23 @@ body {
   min-height: 100vh;
   font-family: monospace;
   color: #fff;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 #game-container {
   position: relative;
-  width: 640px;
-  height: 480px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
 }
 canvas {
   display: block;
   border: 1px solid #333;
   cursor: none;
+  touch-action: none;
 }
 #game-container.fullscreen {
   display: flex;
@@ -99,6 +106,7 @@ canvas {
 
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
+const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
 
 // --- Constants (from Pascal source) ---
 const RONTES = 13;        // Total shots
@@ -160,6 +168,38 @@ let skotex = new Array(RONTES + 1).fill(0);
 let skotey = new Array(RONTES + 1).fill(0);
 let keys = {};             // Currently pressed keys
 let lastFrameTime = 0;
+
+// --- Touch state ---
+let cssScale = 1;
+
+// Joystick (left-half touch zone)
+let joystickTouchId  = null;
+let joystickBaseX    = 0;
+let joystickBaseY    = 0;
+let joystickDx       = 0;
+let joystickDy       = 0;
+const JOYSTICK_RADIUS    = 60;  // canvas px
+const JOYSTICK_MAX_SPEED = 3;   // px/frame at full deflection
+
+// Fire button (right side, bottom)
+let fireTouchId = null;
+const FIRE_BTN_X = 570, FIRE_BTN_Y = 420, FIRE_BTN_R = 52;
+
+// Breath-hold button (right side, upper)
+let breathTouchId = null;
+const BREATH_BTN_X = 570, BREATH_BTN_Y = 300, BREATH_BTN_R = 44;
+
+function screenToCanvas(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (clientX - rect.left) / cssScale,
+    y: (clientY - rect.top)  / cssScale,
+  };
+}
+function ptInCircle(pos, cx, cy, r) {
+  const dx = pos.x - cx, dy = pos.y - cy;
+  return dx*dx + dy*dy <= r*r;
+}
 
 // Smooth drift state
 let driftVx = 0;          // Current drift velocity X
@@ -666,6 +706,74 @@ function drawResults() {
   ctx.textAlign = 'left';
 }
 
+function drawTouchControls() {
+  if (!isTouchDevice || state !== 'shooting') return;
+  ctx.save();
+
+  // ── Joystick ──
+  if (joystickTouchId !== null) {
+    ctx.globalAlpha = 0.35;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(joystickBaseX, joystickBaseY, JOYSTICK_RADIUS, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.60;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(joystickBaseX + joystickDx, joystickBaseY + joystickDy, 16, 0, Math.PI*2);
+    ctx.fill();
+  } else {
+    // Subtle hint when idle
+    ctx.globalAlpha = 0.12;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.arc(110, 390, 46, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = '10px monospace';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.fillText('BEWEEG', 110, 393);
+    ctx.textAlign = 'left';
+  }
+
+  // ── Fire button ──
+  ctx.globalAlpha = fireTouchId !== null ? 0.75 : 0.40;
+  ctx.fillStyle   = fireTouchId !== null ? '#f55' : '#a00';
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(FIRE_BTN_X, FIRE_BTN_Y, FIRE_BTN_R, 0, Math.PI*2); ctx.fill();
+  ctx.globalAlpha = fireTouchId !== null ? 0.90 : 0.55;
+  ctx.beginPath(); ctx.arc(FIRE_BTN_X, FIRE_BTN_Y, FIRE_BTN_R, 0, Math.PI*2); ctx.stroke();
+  ctx.globalAlpha = fireTouchId !== null ? 1.0 : 0.85;
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 13px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('SKIET', FIRE_BTN_X, FIRE_BTN_Y + 5);
+
+  // ── Breath button ──
+  const ba = breathTouchId !== null;
+  ctx.globalAlpha = ba ? 0.75 : 0.40;
+  ctx.fillStyle   = ba ? '#0f0' : '#060';
+  ctx.strokeStyle = '#0f0';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(BREATH_BTN_X, BREATH_BTN_Y, BREATH_BTN_R, 0, Math.PI*2); ctx.fill();
+  ctx.globalAlpha = ba ? 0.90 : 0.55;
+  ctx.beginPath(); ctx.arc(BREATH_BTN_X, BREATH_BTN_Y, BREATH_BTN_R, 0, Math.PI*2); ctx.stroke();
+  ctx.globalAlpha = ba ? 1.0 : 0.85;
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 11px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('HOU', BREATH_BTN_X, BREATH_BTN_Y - 3);
+  ctx.fillText('ASEM', BREATH_BTN_X, BREATH_BTN_Y + 11);
+
+  ctx.textAlign = 'left';
+  ctx.restore();
+}
+
 // --- Count scoring shots (shots closest to a scoring target, not practice) ---
 function countScoringShots() {
   let count = 0;
@@ -890,6 +998,94 @@ document.addEventListener('keyup', (e) => {
   }
 });
 
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  // Resume AudioContext on first user gesture (mobile requirement)
+  if (typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+  for (const t of e.changedTouches) {
+    if (state !== 'shooting') continue;
+    const pos = screenToCanvas(t.clientX, t.clientY);
+
+    // Fire button
+    if (fireTouchId === null && ptInCircle(pos, FIRE_BTN_X, FIRE_BTN_Y, FIRE_BTN_R)) {
+      fireTouchId = t.identifier;
+      if (aantal <= RONTES) {
+        skotex[aantal] = cx + driftOx + breathCurrentDx;
+        skotey[aantal] = cy + driftOy + breathCurrentDy;
+        playFire();
+        flashAlpha = 1.0;
+        flashX = skotex[aantal];
+        flashY = skotey[aantal];
+        aantal++;
+        calculateScore();
+        if (aantal > RONTES || countScoringShots() >= 10) state = 'results';
+      }
+      continue;
+    }
+
+    // Breath-hold button
+    if (breathTouchId === null && ptInCircle(pos, BREATH_BTN_X, BREATH_BTN_Y, BREATH_BTN_R)) {
+      breathTouchId = t.identifier;
+      if (!breathHolding) {
+        breathHolding = true;
+        breathHoldStart = performance.now();
+        breathHoldPhase = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
+        const bw = breathingWaveform(breathHoldPhase);
+        breathHoldStartDx = bw.x;
+        breathHoldStartDy = bw.y;
+        breathHoldQuality = 1 - Math.min(Math.abs(breathHoldPhase - 0.45) / 0.45, 1);
+        breathHoldRestDx = breathHoldStartDx * 0.9;
+        breathHoldRestDy = breathHoldStartDy * (0.7 + 0.3 * breathHoldQuality);
+      }
+      continue;
+    }
+
+    // Joystick zone (left half)
+    if (joystickTouchId === null && pos.x < 320) {
+      joystickTouchId = t.identifier;
+      joystickBaseX = pos.x;
+      joystickBaseY = pos.y;
+      joystickDx = joystickDy = 0;
+    }
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (t.identifier !== joystickTouchId) continue;
+    const pos = screenToCanvas(t.clientX, t.clientY);
+    let dx = pos.x - joystickBaseX;
+    let dy = pos.y - joystickBaseY;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist > JOYSTICK_RADIUS) { dx = dx/dist*JOYSTICK_RADIUS; dy = dy/dist*JOYSTICK_RADIUS; }
+    joystickDx = dx;
+    joystickDy = dy;
+  }
+}, { passive: false });
+
+function handleTouchEnd(e) {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (t.identifier === joystickTouchId) {
+      joystickTouchId = null; joystickDx = joystickDy = 0;
+    }
+    if (t.identifier === fireTouchId)  fireTouchId = null;
+    if (t.identifier === breathTouchId) {
+      breathTouchId = null;
+      if (breathHolding) {
+        breathHolding = false;
+        breathRecovering = true;
+        breathRecoveryStart = performance.now();
+        heartBPMTarget = 60;
+      }
+    }
+  }
+}
+canvas.addEventListener('touchend',    handleTouchEnd, { passive: false });
+canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
 function resetGame() {
   aantal = 1;
   telling = 0;
@@ -936,6 +1132,18 @@ function gameLoop(timestamp) {
     case 'input_name':
     case 'input_team':
     case 'input_comp':
+      // Apply joystick to aim center
+      if (joystickTouchId !== null) {
+        cx += (joystickDx / JOYSTICK_RADIUS) * JOYSTICK_MAX_SPEED;
+        cy += (joystickDy / JOYSTICK_RADIUS) * JOYSTICK_MAX_SPEED;
+        let bounced = false;
+        if (cx >= RG) { cx = RG - 1; bounced = true; }
+        if (cx <= LG) { cx = LG + 1; bounced = true; }
+        if (cy >= OG) { cy = OG - 1; bounced = true; }
+        if (cy <= BG) { cy = BG + 1; bounced = true; }
+        if (bounced) playBoundary();
+      }
+
       // --- Breathing state update ---
       breathPhase += dt;
 
@@ -1074,6 +1282,7 @@ function gameLoop(timestamp) {
       drawScorecard();
       if (state === 'shooting') {
         drawCrosshair(sightX, sightY);
+        drawTouchControls();
       }
 
       // Muzzle flash effect
@@ -1167,29 +1376,23 @@ function toggleFullscreen() {
 }
 
 function updateCanvasScale() {
-  if (document.fullscreenElement) {
-    gameContainer.classList.add('fullscreen');
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const aspect = 640 / 480; // 4:3
-    let w, h;
-    if (vw / vh > aspect) {
-      h = vh;
-      w = h * aspect;
-    } else {
-      w = vw;
-      h = w / aspect;
-    }
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
-  } else {
-    gameContainer.classList.remove('fullscreen');
-    canvas.style.width = '';
-    canvas.style.height = '';
-  }
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const aspect = 640 / 480;
+  let w, h;
+  if (vw / vh > aspect) { h = vh; w = h * aspect; }
+  else                   { w = vw; h = w / aspect; }
+  canvas.style.width  = w + 'px';
+  canvas.style.height = h + 'px';
+  cssScale = w / 640;
+
+  if (document.fullscreenElement) gameContainer.classList.add('fullscreen');
+  else                            gameContainer.classList.remove('fullscreen');
 }
 
 document.addEventListener('fullscreenchange', updateCanvasScale);
+window.addEventListener('resize', updateCanvasScale);
+updateCanvasScale(); // run immediately
 
 // --- Start ---
 canvas.setAttribute('tabindex', '0');
