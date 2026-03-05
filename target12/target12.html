@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="af">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>S.A. Nasionale Bisley Skiet</title>
+<title>S.A. National Bisley Shooting</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -81,25 +81,25 @@ canvas {
 <div id="game-container">
   <canvas id="c" width="640" height="480"></canvas>
   <div class="input-overlay" id="overlay-name">
-    <label>TIK ASSEBLIEF U NAAM IN</label>
-    <input type="text" id="input-name" maxlength="15" placeholder="Naam">
+    <label>ENTER YOUR NAME</label>
+    <input type="text" id="input-name" maxlength="15" placeholder="Name">
     <div class="hint">Press Enter to confirm</div>
   </div>
   <div class="input-overlay" id="overlay-team">
-    <label>TIK ASSEBLIEF U SPAN IN</label>
-    <input type="text" id="input-team" maxlength="6" placeholder="Span">
+    <label>ENTER YOUR TEAM</label>
+    <input type="text" id="input-team" maxlength="6" placeholder="Team">
     <div class="hint">Press Enter to confirm</div>
   </div>
   <div class="input-overlay" id="overlay-comp">
-    <label>TIK ASSEBLIEF DIE KOMPETISIE IN</label>
-    <input type="text" id="input-comp" maxlength="11" placeholder="Kompetisie">
+    <label>ENTER THE COMPETITION</label>
+    <input type="text" id="input-comp" maxlength="11" placeholder="Competition">
     <div class="hint">Press Enter to confirm</div>
   </div>
 </div>
 
 <script>
 // ============================================================
-// S.A. NASIONALE BISLEY SKIET (0.22" KALIBER) - Web Version
+// S.A. NATIONAL BISLEY SHOOTING (0.22" CALIBRE) - Web Version
 // Original: Nico Gerber, 1996 (Turbo Pascal 7.0)
 // Web port: 2026
 // ============================================================
@@ -466,7 +466,7 @@ function drawBreathIndicator(x, y, w, h) {
     ctx.fillStyle = barColor;
     ctx.font = '7px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('ASEM', x + w / 2, y - h / 2 - 2);
+    ctx.fillText('BREATH', x + w / 2, y - h / 2 - 2);
     ctx.textAlign = 'left';
   }
 }
@@ -504,7 +504,7 @@ function drawScorecard() {
   ctx.fillStyle = COL.crosshair;
   ctx.font = '11px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('SLEGS PROEFSKOTE', 320, 285);
+  ctx.fillText('PRACTICE SHOTS ONLY', 320, 285);
 
   // Heartbeat chart
   drawHeartbeatChart(220, 432, 200, 20);
@@ -526,12 +526,12 @@ function drawScorecard() {
   ctx.font = '11px serif';
   ctx.textAlign = 'left';
   ctx.fillStyle = COL.crosshair;
-  ctx.fillText('NAAM ........................', 40, 460);
-  ctx.fillText('KOMP ..................', 450, 460);
-  ctx.fillText(`Skote: ${scoring}/10`, 40, 208);
-  ctx.fillText('TOTAAL', 40, 220);
+  ctx.fillText('NAME ........................', 40, 460);
+  ctx.fillText('COMP ..................', 450, 460);
+  ctx.fillText(`Shots: ${scoring}/10`, 40, 208);
+  ctx.fillText('TOTAL', 40, 220);
   ctx.fillText('......', 40, 235);
-  ctx.fillText('SPAN', 560, 220);
+  ctx.fillText('TEAM', 560, 220);
   ctx.fillText('.........', 555, 235);
 
   // User data
@@ -564,19 +564,19 @@ function drawIntroScreen() {
 
   ctx.fillStyle = '#0a0';
   ctx.font = '22px serif';
-  ctx.fillText('SUID-AFRIKAANSE', 340, 75);
+  ctx.fillText('SOUTH AFRICAN', 320, 75);
 
   ctx.fillStyle = '#ff0';
   ctx.font = '24px serif';
-  ctx.fillText('NASIONALE', 320, 110);
+  ctx.fillText('NATIONAL', 320, 110);
 
   ctx.fillStyle = '#a00';
   ctx.font = 'bold 30px serif';
-  ctx.fillText('BISLEY SKIET 1995', 320, 160);
+  ctx.fillText('BISLEY SHOOTING 1995', 320, 160);
 
   ctx.fillStyle = '#00a';
   ctx.font = '22px serif';
-  ctx.fillText('(0.22" KALIBER)', 320, 195);
+  ctx.fillText('(0.22" CALIBRE)', 320, 195);
 
   // Three demo targets
   for (const tx of [170, 320, 470]) {
@@ -603,11 +603,11 @@ function drawIntroScreen() {
 
   ctx.fillStyle = '#fff';
   ctx.font = '14px sans-serif';
-  ctx.fillText('PROGRAMERING - NICO GERBER', 320, 420);
+  ctx.fillText('PROGRAMMING - NICO GERBER', 320, 420);
 
   ctx.fillStyle = '#888';
   ctx.font = '12px sans-serif';
-  ctx.fillText('Druk [6] vir Help  |  Press any key to start', 320, 450);
+  ctx.fillText('Press [6] for Help  |  Press any key to start', 320, 450);
 
   ctx.textAlign = 'left';
 }
@@ -620,10 +620,10 @@ function drawHelp() {
   ctx.fillStyle = '#0a0';
   ctx.font = '12px monospace';
   ctx.textAlign = 'left';
-  ctx.fillText('HELP - SA NASIONALE BISLEY SKIET .22', 145, 105);
+  ctx.fillText('HELP - SA NATIONAL BISLEY SHOOTING .22', 145, 105);
 
   ctx.fillStyle = '#ff0';
-  ctx.fillText('SLEUTELS / KEYS', 145, 130);
+  ctx.fillText('KEYS', 145, 130);
 
   const lines1 = [
     ['UP    x Medium  = [\u2191]', 'Arrow Up'],
@@ -651,21 +651,21 @@ function drawHelp() {
   }
 
   ly += 6;
-  ctx.fillText('SKIET / SHOOT   = [ENTER / SPACE]', 145, ly); ly += 14;
-  ctx.fillText('HOU ASEM / HOLD BREATH = [SHIFT]', 145, ly); ly += 14;
+  ctx.fillText('SHOOT           = [ENTER / SPACE]', 145, ly); ly += 14;
+  ctx.fillText('HOLD BREATH     = [SHIFT]', 145, ly); ly += 14;
   ctx.fillText('EXIT            = [ESC]', 145, ly); ly += 20;
 
   ctx.fillStyle = '#fff';
-  ctx.fillText('FUNKSIES / FUNCTIONS', 145, ly); ly += 20;
+  ctx.fillText('FUNCTIONS', 145, ly); ly += 20;
 
-  ctx.fillText('NAAM / NAME     = [1]', 145, ly); ly += 14;
-  ctx.fillText('SPAN / TEAM     = [2]', 145, ly); ly += 14;
-  ctx.fillText('KOMPETISIE      = [3]', 145, ly); ly += 14;
-  ctx.fillText('TELLING / SCORE = [4]', 145, ly); ly += 14;
+  ctx.fillText('NAME        = [1]', 145, ly); ly += 14;
+  ctx.fillText('TEAM        = [2]', 145, ly); ly += 14;
+  ctx.fillText('COMPETITION = [3]', 145, ly); ly += 14;
+  ctx.fillText('SCORE       = [4]', 145, ly); ly += 14;
   ly += 6;
-  ctx.fillText('BEGIN OOR / RESTART = [5]', 145, ly); ly += 14;
-  ctx.fillText('HELP                = [6]', 145, ly); ly += 14;
-  ctx.fillText('VOLSKERM / FULLSCREEN = [F11]', 145, ly); ly += 20;
+  ctx.fillText('RESTART     = [5]', 145, ly); ly += 14;
+  ctx.fillText('HELP        = [6]', 145, ly); ly += 14;
+  ctx.fillText('FULLSCREEN  = [F11]', 145, ly); ly += 20;
 
   ctx.fillStyle = '#888';
   ctx.font = '11px monospace';
@@ -684,11 +684,11 @@ function drawResults() {
 
   ctx.fillStyle = COL.crosshair;
   ctx.font = '22px serif';
-  ctx.fillText('JOU RONTES IS KLAAR!', 320, 130);
+  ctx.fillText('YOUR ROUNDS ARE DONE!', 320, 130);
 
   ctx.fillStyle = COL.text1;
   ctx.font = '22px serif';
-  ctx.fillText('TELLING', 300, 175);
+  ctx.fillText('SCORE', 300, 175);
 
   ctx.fillStyle = COL.text2;
   ctx.font = 'bold 64px serif';
@@ -698,9 +698,9 @@ function drawResults() {
 
   ctx.fillStyle = COL.shot;
   ctx.font = '16px serif';
-  ctx.fillText('KEUSES', 320, 300);
-  ctx.fillText('[9]   KYK KAART (10s)', 320, 330);
-  ctx.fillText('[5]   SKIET WEER', 320, 355);
+  ctx.fillText('OPTIONS', 320, 300);
+  ctx.fillText('[9]   VIEW SCORECARD (10s)', 320, 330);
+  ctx.fillText('[5]   SHOOT AGAIN', 320, 355);
   ctx.fillText('[ESC] EXIT', 320, 380);
 
   ctx.textAlign = 'left';
@@ -736,7 +736,7 @@ function drawTouchControls() {
     ctx.font = '10px monospace';
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'center';
-    ctx.fillText('BEWEEG', 110, 393);
+    ctx.fillText('MOVE', 110, 393);
     ctx.textAlign = 'left';
   }
 
@@ -752,7 +752,7 @@ function drawTouchControls() {
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 13px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('SKIET', FIRE_BTN_X, FIRE_BTN_Y + 5);
+  ctx.fillText('FIRE', FIRE_BTN_X, FIRE_BTN_Y + 5);
 
   // ── Breath button ──
   const ba = breathTouchId !== null;
@@ -767,8 +767,8 @@ function drawTouchControls() {
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 11px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('HOU', BREATH_BTN_X, BREATH_BTN_Y - 3);
-  ctx.fillText('ASEM', BREATH_BTN_X, BREATH_BTN_Y + 11);
+  ctx.fillText('HOLD', BREATH_BTN_X, BREATH_BTN_Y - 3);
+  ctx.fillText('BREATH', BREATH_BTN_X, BREATH_BTN_Y + 11);
 
   ctx.textAlign = 'left';
   ctx.restore();
