@@ -48,12 +48,6 @@ object GameConstants {
     // Touch controls
     const val JOYSTICK_RADIUS = 60f
     const val JOYSTICK_MAX_SPEED = 3f
-    const val FIRE_BTN_X = 570f
-    const val FIRE_BTN_Y = 420f
-    const val FIRE_BTN_R = 52f
-    const val BREATH_BTN_X = 570f
-    const val BREATH_BTN_Y = 300f
-    const val BREATH_BTN_R = 44f
 
     // Target positions
     data class Target(val x: Float, val y: Float, val label: String)

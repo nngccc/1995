@@ -495,35 +495,52 @@ For each of the 10 scoring targets (indices 0–4, 6–10):
 
 ### Touch Controls
 
-Displayed only on coarse-pointer (touch) devices, only during `shooting` state. All positions/radii are in canvas coordinates.
+Displayed only on coarse-pointer (touch) devices, only during `shooting` state. Controls are **HTML overlay `<div>` elements** positioned in the viewport margins (the black bars left and right of the 4:3 canvas), not drawn on the canvas.
 
-#### Joystick (left half)
+#### Layout
 
-- **Activation zone**: any touch starting in the left half of the canvas (x < 320)
-- **Base**: appears at the touch-down point
-- **Radius**: `JOYSTICK_RADIUS = 60px`
-- **Thumb nub**: 16px radius, white filled, follows finger position clamped to joystick radius
-- **Visual (active)**: outer ring — white stroke, 2px, α=0.35; thumb nub — white fill, α=0.60
-- **Visual (idle hint)**: dashed circle (4px dash, 6px gap) at (110, 390), radius 46px, white α=0.12; "MOVE" label in 10px monospace centered
+On landscape mobile screens wider than 4:3, the CSS-scaled canvas leaves horizontal margins. Touch controls live in these margins as children of `#game-container`, siblings of the canvas:
+
+- **Left margin**: joystick activation zone
+- **Right margin**: fire button (lower) and breath-hold button (upper)
+
+`updateCanvasScale()` computes margin widths and positions the control elements accordingly. When margin < 80px (narrow viewport), `#game-container` gets a `.narrow-margins` class — controls overlay the canvas edges with semi-transparency instead.
+
+#### Visibility
+
+Controls are hidden via CSS (`display: none`) when not in `shooting` state. JavaScript toggles the `.touch-active` class on each control's container based on game state.
+
+#### Joystick (left margin)
+
+- **Activation zone**: entire left margin `<div>` (touch-action: none)
+- **Idle hint**: centered in left margin at ~65% viewport height; dashed circle, radius 46px, white α=0.12; "MOVE" label 10px monospace
+- **Active**: base appears at touch-down point within the margin; outer ring — white stroke, 2px, α=0.35; thumb nub — 16px radius, white fill, α=0.60
+- **Radius**: `JOYSTICK_RADIUS = 60px` (screen pixels)
 - **Movement**: per frame, `cx += (joystickDx / JOYSTICK_RADIUS) × JOYSTICK_MAX_SPEED`, same for cy. `JOYSTICK_MAX_SPEED = 3` px/frame at full deflection. Boundary clamping and sound applied same as keyboard.
 
-#### Fire Button
+#### Fire Button (right margin, lower)
 
-- **Position**: (570, 420), radius 52px
+- **Position**: centered horizontally in right margin, at ~75% viewport height
+- **Radius**: 52px (screen pixels)
 - **Idle**: fill `#a00` α=0.40, stroke `#fff` 2px α=0.55, label "FIRE" white bold 13px mono α=0.85
 - **Pressed**: fill `#f55` α=0.75, stroke `#fff` 2px α=0.90, label α=1.0
 - **Behavior**: fires a shot on touch-start (same logic as Enter/Space)
 
-#### Breath-Hold Button
+#### Breath-Hold Button (right margin, upper)
 
-- **Position**: (570, 300), radius 44px
-- **Idle**: fill `#060` α=0.40, stroke `#0f0` 2px α=0.55, label "HOLD / BREATH" white bold 11px mono α=0.85 (two lines: "HOLD" at y−3, "BREATH" at y+11)
+- **Position**: centered horizontally in right margin, at ~45% viewport height
+- **Radius**: 44px (screen pixels)
+- **Idle**: fill `#060` α=0.40, stroke `#0f0` 2px α=0.55, label "HOLD / BREATH" white bold 11px mono α=0.85 (two lines: "HOLD" and "BREATH")
 - **Pressed**: fill `#0f0` α=0.75, stroke `#0f0` 2px α=0.90, label α=1.0
 - **Behavior**: activates breath hold on touch-start, releases on touch-end/cancel (same logic as Shift key)
 
 #### Multi-touch
 
-All three touch zones (joystick, fire, breath) track independent touch identifiers, so the player can simultaneously aim with the joystick, hold breath, and fire.
+Separate DOM elements with independent touch event listeners — no manual touch ID tracking needed. The player can simultaneously aim with the joystick, hold breath, and fire.
+
+#### Narrow Viewport Fallback
+
+When margin width < 80px, controls overlay the canvas edges with semi-transparency (α=0.5 background on control containers). This ensures controls remain usable on devices where margins are too narrow.
 
 ---
 

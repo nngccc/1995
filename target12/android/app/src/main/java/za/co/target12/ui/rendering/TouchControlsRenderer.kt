@@ -3,17 +3,15 @@ package za.co.target12.ui.rendering
 import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Typeface
-import za.co.target12.GameConstants.BREATH_BTN_R
-import za.co.target12.GameConstants.BREATH_BTN_X
-import za.co.target12.GameConstants.BREATH_BTN_Y
-import za.co.target12.GameConstants.FIRE_BTN_R
-import za.co.target12.GameConstants.FIRE_BTN_X
-import za.co.target12.GameConstants.FIRE_BTN_Y
 import za.co.target12.GameConstants.JOYSTICK_RADIUS
 import za.co.target12.input.TouchInputState
 
 object TouchControlsRenderer {
 
+    /**
+     * Draw touch controls in screen coordinates (not canvas coordinates).
+     * Call this AFTER nc.restore() so drawing is in screen space.
+     */
     fun draw(nc: android.graphics.Canvas, touch: TouchInputState) {
         // Joystick
         if (touch.joystickPointerId != null) {
@@ -33,7 +31,9 @@ object TouchControlsRenderer {
             }
             nc.drawCircle(touch.joystickBaseX + touch.joystickDx, touch.joystickBaseY + touch.joystickDy, 16f, thumbPaint)
         } else {
-            // Idle hint
+            // Idle hint at margin center
+            val hintX = touch.joystickHintScreenX
+            val hintY = touch.joystickHintScreenY
             val hintRingPaint = Paint().apply {
                 color = 0xFFFFFFFF.toInt()
                 style = Paint.Style.STROKE
@@ -42,7 +42,7 @@ object TouchControlsRenderer {
                 pathEffect = DashPathEffect(floatArrayOf(4f, 6f), 0f)
                 isAntiAlias = true
             }
-            nc.drawCircle(110f, 390f, 46f, hintRingPaint)
+            nc.drawCircle(hintX, hintY, 46f, hintRingPaint)
             val hintTextPaint = Paint().apply {
                 color = 0xFFFFFFFF.toInt()
                 typeface = Typeface.MONOSPACE
@@ -51,10 +51,13 @@ object TouchControlsRenderer {
                 alpha = 31
                 isAntiAlias = true
             }
-            nc.drawText("MOVE", 110f, 393f, hintTextPaint)
+            nc.drawText("MOVE", hintX, hintY + 3f, hintTextPaint)
         }
 
-        // Fire button
+        // Fire button (right margin)
+        val fireX = touch.fireBtnScreenX
+        val fireY = touch.fireBtnScreenY
+        val fireR = touch.fireBtnRadius
         val firePressed = touch.firePointerId != null
         val fireFillPaint = Paint().apply {
             color = if (firePressed) 0xFFFF5555.toInt() else 0xFFAA0000.toInt()
@@ -62,7 +65,7 @@ object TouchControlsRenderer {
             alpha = if (firePressed) 191 else 102
             isAntiAlias = true
         }
-        nc.drawCircle(FIRE_BTN_X, FIRE_BTN_Y, FIRE_BTN_R, fireFillPaint)
+        nc.drawCircle(fireX, fireY, fireR, fireFillPaint)
         val fireStrokePaint = Paint().apply {
             color = 0xFFFFFFFF.toInt()
             style = Paint.Style.STROKE
@@ -70,7 +73,7 @@ object TouchControlsRenderer {
             alpha = if (firePressed) 230 else 140
             isAntiAlias = true
         }
-        nc.drawCircle(FIRE_BTN_X, FIRE_BTN_Y, FIRE_BTN_R, fireStrokePaint)
+        nc.drawCircle(fireX, fireY, fireR, fireStrokePaint)
         val fireTextPaint = Paint().apply {
             color = 0xFFFFFFFF.toInt()
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
@@ -79,9 +82,12 @@ object TouchControlsRenderer {
             alpha = if (firePressed) 255 else 217
             isAntiAlias = true
         }
-        nc.drawText("FIRE", FIRE_BTN_X, FIRE_BTN_Y + 5f, fireTextPaint)
+        nc.drawText("FIRE", fireX, fireY + 5f, fireTextPaint)
 
-        // Breath-hold button
+        // Breath-hold button (right margin)
+        val breathX = touch.breathBtnScreenX
+        val breathY = touch.breathBtnScreenY
+        val breathR = touch.breathBtnRadius
         val breathPressed = touch.breathPointerId != null
         val breathFillPaint = Paint().apply {
             color = if (breathPressed) 0xFF00FF00.toInt() else 0xFF006600.toInt()
@@ -89,7 +95,7 @@ object TouchControlsRenderer {
             alpha = if (breathPressed) 191 else 102
             isAntiAlias = true
         }
-        nc.drawCircle(BREATH_BTN_X, BREATH_BTN_Y, BREATH_BTN_R, breathFillPaint)
+        nc.drawCircle(breathX, breathY, breathR, breathFillPaint)
         val breathStrokePaint = Paint().apply {
             color = 0xFF00FF00.toInt()
             style = Paint.Style.STROKE
@@ -97,7 +103,7 @@ object TouchControlsRenderer {
             alpha = if (breathPressed) 230 else 140
             isAntiAlias = true
         }
-        nc.drawCircle(BREATH_BTN_X, BREATH_BTN_Y, BREATH_BTN_R, breathStrokePaint)
+        nc.drawCircle(breathX, breathY, breathR, breathStrokePaint)
         val breathTextPaint = Paint().apply {
             color = 0xFFFFFFFF.toInt()
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
@@ -106,7 +112,7 @@ object TouchControlsRenderer {
             alpha = if (breathPressed) 255 else 217
             isAntiAlias = true
         }
-        nc.drawText("HOLD", BREATH_BTN_X, BREATH_BTN_Y - 3f, breathTextPaint)
-        nc.drawText("BREATH", BREATH_BTN_X, BREATH_BTN_Y + 11f, breathTextPaint)
+        nc.drawText("HOLD", breathX, breathY - 3f, breathTextPaint)
+        nc.drawText("BREATH", breathX, breathY + 11f, breathTextPaint)
     }
 }

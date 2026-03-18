@@ -50,6 +50,7 @@ class GameState {
 
     // Touch
     val touch = TouchInputState()
+    var currentScaleInfo: za.co.target12.ui.rendering.ScaleInfo? = null
 
     // Audio
     val audio = GameAudio()

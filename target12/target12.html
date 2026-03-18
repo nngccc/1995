@@ -32,6 +32,87 @@ canvas {
   cursor: none;
   touch-action: none;
 }
+/* Touch control overlays in margins */
+.touch-zone {
+  display: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.touch-zone.touch-active { display: block; }
+#touch-left { left: 0; }
+#touch-right { right: 0; }
+.touch-btn {
+  position: absolute;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  font-family: monospace;
+  font-weight: bold;
+  color: #fff;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#touch-fire {
+  width: 104px; height: 104px;
+  background: rgba(170, 0, 0, 0.40);
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+}
+#touch-fire.pressed {
+  background: rgba(255, 85, 85, 0.75);
+  border-color: rgba(255, 255, 255, 0.90);
+}
+#touch-breath {
+  width: 88px; height: 88px;
+  background: rgba(0, 102, 0, 0.40);
+  border: 2px solid rgba(0, 255, 0, 0.55);
+  font-size: 11px;
+  line-height: 1.3;
+}
+#touch-breath.pressed {
+  background: rgba(0, 255, 0, 0.75);
+  border-color: rgba(0, 255, 0, 0.90);
+}
+.joystick-hint {
+  position: absolute;
+  width: 92px; height: 92px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+.joystick-ring {
+  position: absolute;
+  width: 120px; height: 120px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  pointer-events: none;
+  display: none;
+}
+.joystick-thumb {
+  position: absolute;
+  width: 32px; height: 32px;
+  background: rgba(255, 255, 255, 0.60);
+  border-radius: 50%;
+  pointer-events: none;
+  display: none;
+}
+/* Narrow viewport fallback */
+.narrow-margins .touch-zone {
+  background: rgba(0, 0, 0, 0.5);
+}
 #game-container.fullscreen {
   display: flex;
   justify-content: center;
@@ -80,6 +161,16 @@ canvas {
 <body>
 <div id="game-container">
   <canvas id="c" width="640" height="480"></canvas>
+  <!-- Touch controls in viewport margins -->
+  <div id="touch-left" class="touch-zone">
+    <div class="joystick-hint" id="joystick-hint">MOVE</div>
+    <div class="joystick-ring" id="joystick-ring"></div>
+    <div class="joystick-thumb" id="joystick-thumb"></div>
+  </div>
+  <div id="touch-right" class="touch-zone">
+    <div id="touch-fire" class="touch-btn">FIRE</div>
+    <div id="touch-breath" class="touch-btn"><span>HOLD</span><span>BREATH</span></div>
+  </div>
   <div class="input-overlay" id="overlay-name">
     <label>ENTER YOUR NAME</label>
     <input type="text" id="input-name" maxlength="15" placeholder="Name">
@@ -172,34 +263,27 @@ let lastFrameTime = 0;
 // --- Touch state ---
 let cssScale = 1;
 
-// Joystick (left-half touch zone)
-let joystickTouchId  = null;
+// Joystick state (screen pixels, relative to base)
+let joystickActive   = false;
 let joystickBaseX    = 0;
 let joystickBaseY    = 0;
 let joystickDx       = 0;
 let joystickDy       = 0;
-const JOYSTICK_RADIUS    = 60;  // canvas px
+const JOYSTICK_RADIUS    = 60;  // screen px
 const JOYSTICK_MAX_SPEED = 3;   // px/frame at full deflection
 
-// Fire button (right side, bottom)
-let fireTouchId = null;
-const FIRE_BTN_X = 570, FIRE_BTN_Y = 420, FIRE_BTN_R = 52;
+// Button state
+let firePressed = false;
+let breathHoldActive = false;
 
-// Breath-hold button (right side, upper)
-let breathTouchId = null;
-const BREATH_BTN_X = 570, BREATH_BTN_Y = 300, BREATH_BTN_R = 44;
-
-function screenToCanvas(clientX, clientY) {
-  const rect = canvas.getBoundingClientRect();
-  return {
-    x: (clientX - rect.left) / cssScale,
-    y: (clientY - rect.top)  / cssScale,
-  };
-}
-function ptInCircle(pos, cx, cy, r) {
-  const dx = pos.x - cx, dy = pos.y - cy;
-  return dx*dx + dy*dy <= r*r;
-}
+// DOM elements for touch controls
+const touchLeft = document.getElementById('touch-left');
+const touchRight = document.getElementById('touch-right');
+const joystickHint = document.getElementById('joystick-hint');
+const joystickRing = document.getElementById('joystick-ring');
+const joystickThumb = document.getElementById('joystick-thumb');
+const fireBtnEl = document.getElementById('touch-fire');
+const breathBtnEl = document.getElementById('touch-breath');
 
 // Smooth drift state
 let driftVx = 0;          // Current drift velocity X
@@ -706,72 +790,19 @@ function drawResults() {
   ctx.textAlign = 'left';
 }
 
-function drawTouchControls() {
-  if (!isTouchDevice || state !== 'shooting') return;
-  ctx.save();
-
-  // ── Joystick ──
-  if (joystickTouchId !== null) {
-    ctx.globalAlpha = 0.35;
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(joystickBaseX, joystickBaseY, JOYSTICK_RADIUS, 0, Math.PI*2);
-    ctx.stroke();
-    ctx.globalAlpha = 0.60;
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.arc(joystickBaseX + joystickDx, joystickBaseY + joystickDy, 16, 0, Math.PI*2);
-    ctx.fill();
-  } else {
-    // Subtle hint when idle
-    ctx.globalAlpha = 0.12;
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 6]);
-    ctx.beginPath();
-    ctx.arc(110, 390, 46, 0, Math.PI*2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.font = '10px monospace';
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'center';
-    ctx.fillText('MOVE', 110, 393);
-    ctx.textAlign = 'left';
+function updateTouchControlsVisibility() {
+  if (!isTouchDevice) return;
+  const show = state === 'shooting';
+  touchLeft.classList.toggle('touch-active', show);
+  touchRight.classList.toggle('touch-active', show);
+  // Reset joystick visuals when hiding
+  if (!show && joystickActive) {
+    joystickActive = false;
+    joystickDx = joystickDy = 0;
+    joystickRing.style.display = 'none';
+    joystickThumb.style.display = 'none';
+    joystickHint.style.display = '';
   }
-
-  // ── Fire button ──
-  ctx.globalAlpha = fireTouchId !== null ? 0.75 : 0.40;
-  ctx.fillStyle   = fireTouchId !== null ? '#f55' : '#a00';
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(FIRE_BTN_X, FIRE_BTN_Y, FIRE_BTN_R, 0, Math.PI*2); ctx.fill();
-  ctx.globalAlpha = fireTouchId !== null ? 0.90 : 0.55;
-  ctx.beginPath(); ctx.arc(FIRE_BTN_X, FIRE_BTN_Y, FIRE_BTN_R, 0, Math.PI*2); ctx.stroke();
-  ctx.globalAlpha = fireTouchId !== null ? 1.0 : 0.85;
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 13px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('FIRE', FIRE_BTN_X, FIRE_BTN_Y + 5);
-
-  // ── Breath button ──
-  const ba = breathTouchId !== null;
-  ctx.globalAlpha = ba ? 0.75 : 0.40;
-  ctx.fillStyle   = ba ? '#0f0' : '#060';
-  ctx.strokeStyle = '#0f0';
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(BREATH_BTN_X, BREATH_BTN_Y, BREATH_BTN_R, 0, Math.PI*2); ctx.fill();
-  ctx.globalAlpha = ba ? 0.90 : 0.55;
-  ctx.beginPath(); ctx.arc(BREATH_BTN_X, BREATH_BTN_Y, BREATH_BTN_R, 0, Math.PI*2); ctx.stroke();
-  ctx.globalAlpha = ba ? 1.0 : 0.85;
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 11px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('HOLD', BREATH_BTN_X, BREATH_BTN_Y - 3);
-  ctx.fillText('BREATH', BREATH_BTN_X, BREATH_BTN_Y + 11);
-
-  ctx.textAlign = 'left';
-  ctx.restore();
 }
 
 // --- Count scoring shots (shots closest to a scoring target, not practice) ---
@@ -998,93 +1029,125 @@ document.addEventListener('keyup', (e) => {
   }
 });
 
-canvas.addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  // Resume AudioContext on first user gesture (mobile requirement)
+// --- DOM-based touch controls (margin overlays) ---
+function resumeAudio() {
   if (typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
 
-  for (const t of e.changedTouches) {
-    if (state !== 'shooting') continue;
-    const pos = screenToCanvas(t.clientX, t.clientY);
+if (isTouchDevice) {
+  // Joystick listeners on left margin zone
+  touchLeft.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    resumeAudio();
+    if (state !== 'shooting') return;
+    const t = e.changedTouches[0];
+    const rect = touchLeft.getBoundingClientRect();
+    joystickActive = true;
+    joystickBaseX = t.clientX - rect.left;
+    joystickBaseY = t.clientY - rect.top;
+    joystickDx = joystickDy = 0;
+    // Show ring at touch point
+    joystickHint.style.display = 'none';
+    joystickRing.style.display = 'block';
+    joystickRing.style.left = (joystickBaseX - 60) + 'px';
+    joystickRing.style.top  = (joystickBaseY - 60) + 'px';
+    joystickThumb.style.display = 'block';
+    joystickThumb.style.left = (joystickBaseX - 16) + 'px';
+    joystickThumb.style.top  = (joystickBaseY - 16) + 'px';
+  }, { passive: false });
 
-    // Fire button
-    if (fireTouchId === null && ptInCircle(pos, FIRE_BTN_X, FIRE_BTN_Y, FIRE_BTN_R)) {
-      fireTouchId = t.identifier;
-      if (aantal <= RONTES) {
-        skotex[aantal] = cx + driftOx + breathCurrentDx;
-        skotey[aantal] = cy + driftOy + breathCurrentDy;
-        playFire();
-        flashAlpha = 1.0;
-        flashX = skotex[aantal];
-        flashY = skotey[aantal];
-        aantal++;
-        calculateScore();
-        if (aantal > RONTES || countScoringShots() >= 10) state = 'results';
-      }
-      continue;
-    }
-
-    // Breath-hold button
-    if (breathTouchId === null && ptInCircle(pos, BREATH_BTN_X, BREATH_BTN_Y, BREATH_BTN_R)) {
-      breathTouchId = t.identifier;
-      if (!breathHolding) {
-        breathHolding = true;
-        breathHoldStart = performance.now();
-        breathHoldPhase = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
-        const bw = breathingWaveform(breathHoldPhase);
-        breathHoldStartDx = bw.x;
-        breathHoldStartDy = bw.y;
-        breathHoldQuality = 1 - Math.min(Math.abs(breathHoldPhase - 0.45) / 0.45, 1);
-        breathHoldRestDx = breathHoldStartDx * 0.9;
-        breathHoldRestDy = breathHoldStartDy * (0.7 + 0.3 * breathHoldQuality);
-      }
-      continue;
-    }
-
-    // Joystick zone (left half)
-    if (joystickTouchId === null && pos.x < 320) {
-      joystickTouchId = t.identifier;
-      joystickBaseX = pos.x;
-      joystickBaseY = pos.y;
-      joystickDx = joystickDy = 0;
-    }
-  }
-}, { passive: false });
-
-canvas.addEventListener('touchmove', (e) => {
-  e.preventDefault();
-  for (const t of e.changedTouches) {
-    if (t.identifier !== joystickTouchId) continue;
-    const pos = screenToCanvas(t.clientX, t.clientY);
-    let dx = pos.x - joystickBaseX;
-    let dy = pos.y - joystickBaseY;
+  touchLeft.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (!joystickActive) return;
+    const t = e.changedTouches[0];
+    const rect = touchLeft.getBoundingClientRect();
+    let dx = (t.clientX - rect.left) - joystickBaseX;
+    let dy = (t.clientY - rect.top) - joystickBaseY;
     const dist = Math.sqrt(dx*dx + dy*dy);
     if (dist > JOYSTICK_RADIUS) { dx = dx/dist*JOYSTICK_RADIUS; dy = dy/dist*JOYSTICK_RADIUS; }
     joystickDx = dx;
     joystickDy = dy;
-  }
-}, { passive: false });
+    joystickThumb.style.left = (joystickBaseX + dx - 16) + 'px';
+    joystickThumb.style.top  = (joystickBaseY + dy - 16) + 'px';
+  }, { passive: false });
 
-function handleTouchEnd(e) {
-  e.preventDefault();
-  for (const t of e.changedTouches) {
-    if (t.identifier === joystickTouchId) {
-      joystickTouchId = null; joystickDx = joystickDy = 0;
+  function joystickEnd(e) {
+    e.preventDefault();
+    joystickActive = false;
+    joystickDx = joystickDy = 0;
+    joystickRing.style.display = 'none';
+    joystickThumb.style.display = 'none';
+    joystickHint.style.display = '';
+  }
+  touchLeft.addEventListener('touchend', joystickEnd, { passive: false });
+  touchLeft.addEventListener('touchcancel', joystickEnd, { passive: false });
+
+  // Fire button listeners
+  fireBtnEl.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resumeAudio();
+    if (state !== 'shooting') return;
+    firePressed = true;
+    fireBtnEl.classList.add('pressed');
+    if (aantal <= RONTES) {
+      skotex[aantal] = cx + driftOx + breathCurrentDx;
+      skotey[aantal] = cy + driftOy + breathCurrentDy;
+      playFire();
+      flashAlpha = 1.0;
+      flashX = skotex[aantal];
+      flashY = skotey[aantal];
+      aantal++;
+      calculateScore();
+      if (aantal > RONTES || countScoringShots() >= 10) state = 'results';
     }
-    if (t.identifier === fireTouchId)  fireTouchId = null;
-    if (t.identifier === breathTouchId) {
-      breathTouchId = null;
-      if (breathHolding) {
-        breathHolding = false;
-        breathRecovering = true;
-        breathRecoveryStart = performance.now();
-        heartBPMTarget = 60;
-      }
+  }, { passive: false });
+
+  function fireEnd(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    firePressed = false;
+    fireBtnEl.classList.remove('pressed');
+  }
+  fireBtnEl.addEventListener('touchend', fireEnd, { passive: false });
+  fireBtnEl.addEventListener('touchcancel', fireEnd, { passive: false });
+
+  // Breath-hold button listeners
+  breathBtnEl.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resumeAudio();
+    if (state !== 'shooting') return;
+    breathHoldActive = true;
+    breathBtnEl.classList.add('pressed');
+    if (!breathHolding) {
+      breathHolding = true;
+      breathHoldStart = performance.now();
+      breathHoldPhase = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
+      const bw = breathingWaveform(breathHoldPhase);
+      breathHoldStartDx = bw.x;
+      breathHoldStartDy = bw.y;
+      breathHoldQuality = 1 - Math.min(Math.abs(breathHoldPhase - 0.45) / 0.45, 1);
+      breathHoldRestDx = breathHoldStartDx * 0.9;
+      breathHoldRestDy = breathHoldStartDy * (0.7 + 0.3 * breathHoldQuality);
+    }
+  }, { passive: false });
+
+  function breathEnd(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    breathHoldActive = false;
+    breathBtnEl.classList.remove('pressed');
+    if (breathHolding) {
+      breathHolding = false;
+      breathRecovering = true;
+      breathRecoveryStart = performance.now();
+      heartBPMTarget = 60;
     }
   }
+  breathBtnEl.addEventListener('touchend', breathEnd, { passive: false });
+  breathBtnEl.addEventListener('touchcancel', breathEnd, { passive: false });
 }
-canvas.addEventListener('touchend',    handleTouchEnd, { passive: false });
-canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
 
 function resetGame() {
   aantal = 1;
@@ -1133,7 +1196,7 @@ function gameLoop(timestamp) {
     case 'input_team':
     case 'input_comp':
       // Apply joystick to aim center
-      if (joystickTouchId !== null) {
+      if (joystickActive) {
         cx += (joystickDx / JOYSTICK_RADIUS) * JOYSTICK_MAX_SPEED;
         cy += (joystickDy / JOYSTICK_RADIUS) * JOYSTICK_MAX_SPEED;
         let bounced = false;
@@ -1282,8 +1345,8 @@ function gameLoop(timestamp) {
       drawScorecard();
       if (state === 'shooting') {
         drawCrosshair(sightX, sightY);
-        drawTouchControls();
       }
+      updateTouchControlsVisibility();
 
       // Muzzle flash effect
       if (flashAlpha > 0) {
@@ -1388,6 +1451,35 @@ function updateCanvasScale() {
 
   if (document.fullscreenElement) gameContainer.classList.add('fullscreen');
   else                            gameContainer.classList.remove('fullscreen');
+
+  // Position touch controls in margins
+  if (isTouchDevice) {
+    const marginW = (vw - w) / 2;
+    const canvasLeft = (vw - w) / 2;
+    const narrow = marginW < 80;
+    gameContainer.classList.toggle('narrow-margins', narrow);
+
+    // Left zone: covers left margin (or overlaps canvas edge if narrow)
+    const zoneW = narrow ? 80 : marginW;
+    touchLeft.style.width = zoneW + 'px';
+    touchLeft.style.left = (narrow ? canvasLeft - 10 : 0) + 'px';
+
+    // Position joystick hint in left zone at ~65% height
+    joystickHint.style.left = (zoneW / 2 - 46) + 'px';
+    joystickHint.style.top  = (vh * 0.65 - 46) + 'px';
+
+    // Right zone: covers right margin
+    touchRight.style.width = zoneW + 'px';
+    touchRight.style.right = (narrow ? canvasLeft - 10 : 0) + 'px';
+
+    // Position fire button at ~75% height, centered in right zone
+    fireBtnEl.style.left = (zoneW / 2 - 52) + 'px';
+    fireBtnEl.style.top  = (vh * 0.75 - 52) + 'px';
+
+    // Position breath button at ~45% height, centered in right zone
+    breathBtnEl.style.left = (zoneW / 2 - 44) + 'px';
+    breathBtnEl.style.top  = (vh * 0.45 - 44) + 'px';
+  }
 }
 
 document.addEventListener('fullscreenchange', updateCanvasScale);

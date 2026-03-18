@@ -68,7 +68,11 @@ fun GameScreen(gs: GameState) {
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(Color.Black)
+            .pointerInteropFilter { event ->
+                handleTouchEvent(event, gs)
+                true
+            },
         contentAlignment = Alignment.Center,
     ) {
         val density = LocalDensity.current
@@ -79,21 +83,28 @@ fun GameScreen(gs: GameState) {
         val canvasWidthDp = with(density) { (CANVAS_W * scaleInfo.scale).toDp() }
         val canvasHeightDp = with(density) { (CANVAS_H * scaleInfo.scale).toDp() }
 
+        // Update touch layout with margin info
+        gs.touch.updateLayout(
+            scaleMarginLeft = scaleInfo.offsetX,
+            scaleMarginRight = scaleInfo.offsetX + CANVAS_W * scaleInfo.scale,
+            scaleMarginWidth = scaleInfo.marginLeft,
+            scaleScreenHeight = screenHeightPx,
+            narrow = scaleInfo.isNarrowMargin
+        )
+        // Store scaleInfo for touch handler
+        gs.currentScaleInfo = scaleInfo
+
         // Read frame counter to trigger recomposition
         val frame = gs.frameCounter.longValue
 
+        // Game canvas (centered, 4:3)
         Box(
             modifier = Modifier
                 .width(canvasWidthDp)
                 .height(canvasHeightDp)
         ) {
             Canvas(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInteropFilter { event ->
-                        handleTouchEvent(event, gs, scaleInfo.scale)
-                        true
-                    }
+                modifier = Modifier.fillMaxSize()
             ) {
                 @Suppress("UNUSED_EXPRESSION")
                 frame
@@ -108,7 +119,6 @@ fun GameScreen(gs: GameState) {
                     GS.SHOOTING, GS.INPUT_NAME, GS.INPUT_TEAM, GS.INPUT_COMP -> {
                         ScorecardRenderer.draw(this, gs)
                         CrosshairRenderer.draw(nc, gs.sightX, gs.sightY)
-                        TouchControlsRenderer.draw(nc, gs.touch)
                         MuzzleFlashRenderer.draw(nc, gs.flashX, gs.flashY, gs.flashAlpha, CANVAS_W, CANVAS_H)
                     }
 
@@ -155,19 +165,34 @@ fun GameScreen(gs: GameState) {
                 else -> {}
             }
         }
+
+        // Full-screen overlay for touch controls (drawn in screen coordinates)
+        if (gs.screen == GS.SHOOTING || gs.screen == GS.INPUT_NAME ||
+            gs.screen == GS.INPUT_TEAM || gs.screen == GS.INPUT_COMP) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                @Suppress("UNUSED_EXPRESSION")
+                frame
+                TouchControlsRenderer.draw(drawContext.canvas.nativeCanvas, gs.touch)
+            }
+        }
     }
 }
 
-private fun handleTouchEvent(event: MotionEvent, gs: GameState, scale: Float) {
+private fun handleTouchEvent(event: MotionEvent, gs: GameState) {
+    val scaleInfo = gs.currentScaleInfo ?: return
     val actionIndex = event.actionIndex
     val pointerId = event.getPointerId(actionIndex)
-    val canvasX = event.getX(actionIndex) / scale
-    val canvasY = event.getY(actionIndex) / scale
+    // Screen coordinates for margin-based touch controls
+    val screenX = event.getX(actionIndex)
+    val screenY = event.getY(actionIndex)
+    // Canvas coordinates for game interaction (results tap, etc.)
+    val canvasX = (screenX - scaleInfo.offsetX) / scaleInfo.scale
+    val canvasY = (screenY - scaleInfo.offsetY) / scaleInfo.scale
 
     when (event.actionMasked) {
         MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
             when (gs.screen) {
-                GS.SHOOTING -> gs.touch.onPointerDown(pointerId, canvasX, canvasY)
+                GS.SHOOTING -> gs.touch.onPointerDown(pointerId, screenX, screenY)
                 GS.HELP -> gs.screen = GS.SHOOTING
                 GS.SCORECARD -> gs.screen = GS.RESULTS
                 GS.RESULTS -> handleResultsTap(gs, canvasX, canvasY)
@@ -178,8 +203,8 @@ private fun handleTouchEvent(event: MotionEvent, gs: GameState, scale: Float) {
         MotionEvent.ACTION_MOVE -> {
             for (i in 0 until event.pointerCount) {
                 val id = event.getPointerId(i)
-                val x = event.getX(i) / scale
-                val y = event.getY(i) / scale
+                val x = event.getX(i)
+                val y = event.getY(i)
                 gs.touch.onPointerMove(id, x, y)
             }
         }

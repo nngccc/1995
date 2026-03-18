@@ -1,11 +1,5 @@
 package za.co.target12.input
 
-import za.co.target12.GameConstants.BREATH_BTN_R
-import za.co.target12.GameConstants.BREATH_BTN_X
-import za.co.target12.GameConstants.BREATH_BTN_Y
-import za.co.target12.GameConstants.FIRE_BTN_R
-import za.co.target12.GameConstants.FIRE_BTN_X
-import za.co.target12.GameConstants.FIRE_BTN_Y
 import za.co.target12.GameConstants.JOYSTICK_RADIUS
 
 class TouchInputState {
@@ -25,35 +19,72 @@ class TouchInputState {
     var breathJustPressed = false
     var breathJustReleased = false
 
-    fun onPointerDown(id: Int, canvasX: Float, canvasY: Float) {
-        // Fire button
-        if (firePointerId == null && ptInCircle(canvasX, canvasY, FIRE_BTN_X, FIRE_BTN_Y, FIRE_BTN_R)) {
+    // Margin layout info (set by GameScreen on each frame/resize)
+    var marginWidth = 0f
+    var leftMarginLeft = 0f    // screen X of left margin start
+    var leftMarginRight = 0f   // screen X of left margin end (= canvas left)
+    var rightMarginLeft = 0f   // screen X of right margin start (= canvas right)
+    var rightMarginRight = 0f  // screen X of right margin end
+    var screenHeight = 0f
+    var isNarrowMargin = false
+
+    // Button centers in screen coordinates (computed from margin layout)
+    val fireBtnScreenX: Float get() = rightMarginLeft + marginWidth / 2f
+    val fireBtnScreenY: Float get() = screenHeight * 0.75f
+    val fireBtnRadius: Float get() = 52f
+
+    val breathBtnScreenX: Float get() = rightMarginLeft + marginWidth / 2f
+    val breathBtnScreenY: Float get() = screenHeight * 0.45f
+    val breathBtnRadius: Float get() = 44f
+
+    val joystickHintScreenX: Float get() = leftMarginLeft + marginWidth / 2f
+    val joystickHintScreenY: Float get() = screenHeight * 0.65f
+
+    fun updateLayout(scaleMarginLeft: Float, scaleMarginRight: Float, scaleMarginWidth: Float,
+                     scaleScreenHeight: Float, narrow: Boolean) {
+        leftMarginLeft = 0f
+        leftMarginRight = scaleMarginLeft
+        rightMarginLeft = scaleMarginRight
+        rightMarginRight = scaleMarginRight + scaleMarginWidth
+        marginWidth = if (narrow) 80f else scaleMarginWidth
+        screenHeight = scaleScreenHeight
+        isNarrowMargin = narrow
+    }
+
+    fun onPointerDown(id: Int, screenX: Float, screenY: Float) {
+        // Fire button (right margin)
+        if (firePointerId == null && ptInCircle(screenX, screenY, fireBtnScreenX, fireBtnScreenY, fireBtnRadius)) {
             firePointerId = id
             fireJustPressed = true
             return
         }
 
-        // Breath-hold button
-        if (breathPointerId == null && ptInCircle(canvasX, canvasY, BREATH_BTN_X, BREATH_BTN_Y, BREATH_BTN_R)) {
+        // Breath-hold button (right margin)
+        if (breathPointerId == null && ptInCircle(screenX, screenY, breathBtnScreenX, breathBtnScreenY, breathBtnRadius)) {
             breathPointerId = id
             breathJustPressed = true
             return
         }
 
-        // Joystick zone (left half)
-        if (joystickPointerId == null && canvasX < 320f) {
+        // Joystick zone (left margin area)
+        val inLeftMargin = if (isNarrowMargin) {
+            screenX < leftMarginRight + 80f
+        } else {
+            screenX < leftMarginRight
+        }
+        if (joystickPointerId == null && inLeftMargin) {
             joystickPointerId = id
-            joystickBaseX = canvasX
-            joystickBaseY = canvasY
+            joystickBaseX = screenX
+            joystickBaseY = screenY
             joystickDx = 0f
             joystickDy = 0f
         }
     }
 
-    fun onPointerMove(id: Int, canvasX: Float, canvasY: Float) {
+    fun onPointerMove(id: Int, screenX: Float, screenY: Float) {
         if (id != joystickPointerId) return
-        var dx = canvasX - joystickBaseX
-        var dy = canvasY - joystickBaseY
+        var dx = screenX - joystickBaseX
+        var dy = screenY - joystickBaseY
         val dist = kotlin.math.sqrt(dx * dx + dy * dy)
         if (dist > JOYSTICK_RADIUS) {
             dx = dx / dist * JOYSTICK_RADIUS
