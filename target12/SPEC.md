@@ -2,154 +2,430 @@
 
 ## Overview
 
-Web-based recreation of a South African National Bisley shooting competition simulator (0.22" caliber), originally written in Turbo Pascal 7.0 by Nico Gerber (1996). Single HTML file, no dependencies.
+Recreation of a South African National Bisley shooting competition simulator (0.22" calibre), originally written in Turbo Pascal 7.0 by Nico Gerber (1996). The player aims a crosshair on a scorecard of 11 targets, fighting hand shake, breathing rhythm, and heartbeat to place accurate shots. This spec is intended to be complete enough to reimplement the game on any platform without consulting the source code.
 
 ## Origin
 
-- **Original**: `TARGET12.PAS` — Turbo Pascal 7.0, BGI graphics, 640x480
+- **Original**: `TARGET12.PAS` — Turbo Pascal 7.0, BGI graphics, 640×480
 - **Author**: Nico Gerber, Standard 9, 1996
 - **Organization**: S.A.N.S.S.U. (Suid-Afrikaanse Nasionale Skietskyfskiet-Unie)
-- **Competition**: National Bisley target shooting, 0.22" caliber rifles
+- **Competition**: National Bisley target shooting, 0.22" calibre rifles
 
-## Technical Stack
+## Language
 
-- Single file: `target12.html`
-- Canvas 2D (640x480, matching original BGI resolution)
-- Vanilla JavaScript, no frameworks or build tools
-- `requestAnimationFrame` game loop
-- `AudioContext` oscillator for sound effects
-- HTML overlays for text input (name/team/competition)
+All UI text is in English (translated from the Afrikaans original).
+
+---
+
+## Canvas and Coordinate System
+
+- **Virtual resolution**: 640×480 pixels
+- **Aspect ratio**: 4:3
+- **Coordinate origin**: top-left corner (0, 0)
+- **Y axis**: increases downward
+- **Playfield boundaries**: top `BG=55`, bottom `OG=430`, left `LG=50`, right `RG=582`
+
+### Display Scaling
+
+The canvas is CSS-scaled to fit the viewport while preserving 4:3 aspect ratio. The internal 640×480 resolution never changes — all coordinates and sizes in this spec are in virtual canvas pixels.
+
+Scaling logic:
+1. Compare viewport aspect to 640/480
+2. If viewport is wider than 4:3: `h = viewportHeight`, `w = h × (640/480)`
+3. If viewport is taller than 4:3: `w = viewportWidth`, `h = w / (640/480)`
+4. A `cssScale` factor (`w / 640`) is maintained for converting screen-space touch/mouse coordinates back to canvas coordinates
+
+Fullscreen mode (toggled with F11) applies the same scaling at 100vw × 100vh with the canvas border removed.
 
 ---
 
 ## Game States
 
 ```
-drawrose → intro → shooting ⇄ help
-                            ⇄ input_name / input_team / input_comp
-                  shooting → results ⇄ scorecard
-                             results → shooting (restart)
-                             results → intro (exit)
+intro → shooting ⇄ help
+                 ⇄ input_name / input_team / input_comp
+       shooting → results ⇄ scorecard
+                  results → shooting (restart)
+                  results → intro (exit)
 ```
 
-### 1. `drawrose` (Splash Screen)
-- "LCC PRODUKSIES" with decorative rose graphic
-- "BIED AAN..." text
-- Auto-advances to step 2: "GEPROGRAMEER IN TURBO PASCAL 7.0" with typewriter effect
-- Skip: any key → `intro`
+### 1. `intro` (Title Screen)
 
-### 2. `intro` (Title Screen)
-- Title: "SUID-AFRIKAANSE NASIONALE BISLEY SKIET 1995 (0.22" KALIBER)"
-- Three demo targets with animated shot sequence (timed at 1.5s intervals with fire sound)
-- Credit: "PROGRAMERING - NICO GERBER"
-- Prompt: "Druk [6] vir Help | Press any key to start"
-- Press `6` → `help`, any other key → `shooting`
+Black background, centered text:
 
-### 3. `shooting` (Main Game)
-- Scorecard displayed as background with all 11 targets
-- Crosshair overlaid, subject to drift and heartbeat effects
-- Player aims and fires shots
-- Muzzle flash on each shot: radial gradient (white/yellow core → orange → transparent, 60px) at shot position + subtle full-screen white overlay, fades over ~100ms
-- Round ends when either condition is met:
-  - 10 scoring shots fired (shots closest to a scoring target, not practice), OR
-  - 13 total shots fired
-- On round end → `results`
+| Element | Color | Font | Position (y) |
+|---------|-------|------|-------------|
+| "SOUTH AFRICAN" | `#0a0` | 22px serif | 75 |
+| "NATIONAL" | `#ff0` | 24px serif | 110 |
+| "BISLEY SHOOTING 1995" | `#a00` | bold 30px serif | 160 |
+| "(0.22\" CALIBRE)" | `#00a` | 22px serif | 195 |
+| "PROGRAMMING - NICO GERBER" | `#fff` | 14px sans-serif | 420 |
+| "Press [6] for Help \| Press any key to start" | `#888` | 12px sans-serif | 450 |
 
-### 4. `help` (Overlay)
-- Blue overlay on top of scorecard
-- Shows all controls (bilingual Afrikaans/English)
-- Any key → return to `shooting`
+All text is horizontally centered at x=320.
 
-### 5. `input_name` / `input_team` / `input_comp`
-- HTML overlay with text input field
-- Enter confirms, Escape cancels
-- Returns to `shooting`
-- Drift continues in background
+**Demo targets**: Three targets drawn at y=275, x positions 170, 320, 470.
 
-### 6. `results` (Score Screen)
-- Blue overlay: "JOU RONTES IS KLAAR!"
-- Large score display with `%` symbol
-- Options: `[9]` view scorecard, `[5]` restart, `[ESC]` exit to intro
+**Demo shot animation** (timed from state entry):
+| Time (ms) | Shot | Position |
+|-----------|------|----------|
+| 1500 | 1 | (340, 255) |
+| 2500 | 2 | (320, 260) |
+| 3500 | 3 | (320, 275) |
 
-### 7. `scorecard` (View Card)
-- Full scorecard with all shots visible
-- 10-second countdown timer (9→0) displayed
-- Auto-returns to `results` when countdown ends
+Each demo shot triggers a fire sound. Shot dots are `#a00`, 5px radius.
+
+**Auto-advance**: At 5500ms, automatically transitions to `shooting`.
+
+> **Note**: The displayed text suggests keyboard interaction ("Press [6] for Help | Press any key to start") but the current implementation only advances via the auto-advance timer. Keyboard input during intro has no effect (except F11 for fullscreen).
+
+### 2. `shooting` (Main Game)
+
+Scorecard displayed as background with all 11 targets. Crosshair overlaid, subject to drift, heartbeat, and breathing effects. Player aims and fires shots.
+
+**Muzzle flash** on each shot: radial gradient centered on shot position, 60px radius:
+- Stop 0.0: `rgba(255, 255, 255, α)`
+- Stop 0.3: `rgba(255, 255, 100, α×0.7)`
+- Stop 0.7: `rgba(255, 160, 0, α×0.3)`
+- Stop 1.0: `rgba(255, 160, 0, 0)`
+
+Plus a full-screen white overlay at `α×0.15`. Flash alpha starts at 1.0 and decays by `dt/100` per frame (fades over ~100ms).
+
+**Round end** when either condition is met:
+- 10 scoring shots fired (shots closest to a scoring target, not practice), OR
+- 13 total shots fired
+
+On round end → `results`.
+
+### 3. `help` (Overlay)
+
+Dark blue overlay `rgba(0, 0, 100, 0.95)` at rect (130, 80, 380×374).
+
+Layout (all text left-aligned at x=145):
+
+| y | Color | Font | Content |
+|---|-------|------|---------|
+| 105 | `#0a0` | 12px mono | "HELP - SA NATIONAL BISLEY SHOOTING .22" |
+| 130 | `#ff0` | 12px mono | "KEYS" |
+| 150–192 | `#ff0` | 12px mono | Arrow key controls (4 lines, 14px spacing) |
+| 206–248 | `#ff0` | 12px mono | WASD controls (4 lines, 14px spacing) |
+| 262 | `#ff0` | 12px mono | "SHOOT = [ENTER / SPACE]" |
+| 276 | `#ff0` | 12px mono | "HOLD BREATH = [SHIFT]" |
+| 290 | `#ff0` | 12px mono | "EXIT = [ESC]" |
+| 310 | `#fff` | 12px mono | "FUNCTIONS" |
+| 330–386 | `#fff` | 12px mono | Function keys 1–3, 5–6, F11 (14px spacing) |
+| ~406 | `#888` | 11px mono | "Press any key to close" |
+
+Any key → return to `shooting`.
+
+### 4. `input_name` / `input_team` / `input_comp`
+
+HTML overlay positioned absolute over the canvas, styled:
+- Background: `rgba(0, 0, 80, 0.95)`
+- Flex-centered vertically and horizontally
+- Label: 18px serif, white, margin-bottom 16px
+- Input field: 18px monospace, 240px wide, 8px/16px padding, background `#060`, border `2px solid #0a0` (focus: `#0f0`), white text, centered
+- Hint text: 12px, `#888`, margin-top 8px, "Press Enter to confirm"
+
+Labels:
+- Name: "ENTER YOUR NAME"
+- Team: "ENTER YOUR TEAM"
+- Competition: "ENTER THE COMPETITION"
+
+Enter confirms and stores value, Escape cancels. Both return to `shooting`. Drift continues in background during input.
+
+### 5. `results` (Score Screen)
+
+Dark blue overlay `rgba(0, 0, 100, 0.95)` at rect (130, 80, 380×340). All text centered at x=320.
+
+| y | Color | Font | Content |
+|---|-------|------|---------|
+| 130 | `#fff` | 22px serif | "YOUR ROUNDS ARE DONE!" |
+| 175 | `#0a0` | 22px serif | "SCORE" (at x=300) |
+| 260 | `#ff0` | bold 64px serif | Score value (x=220 if 100, else x=260) |
+| 250 | `#ff0` | bold 48px serif | "%" (at x=400) |
+| 300 | `#a00` | 16px serif | "OPTIONS" |
+| 330 | `#a00` | 16px serif | "[9]   VIEW SCORECARD (10s)" |
+| 355 | `#a00` | 16px serif | "[5]   SHOOT AGAIN" |
+| 380 | `#a00` | 16px serif | "[ESC] EXIT" |
+
+Options: `[9]` → scorecard, `[5]` → restart, `[ESC]` → exit to intro.
+
+### 6. `scorecard` (View Card)
+
+Full scorecard rendered (same as shooting background). A countdown box is overlaid:
+- Box: `rgba(0, 0, 100, 0.9)` rect at (290, 400, 60×35)
+- Number: `#fff`, 22px serif, centered at (320, 425)
+- Countdown: starts at 9, decrements every 1000ms
+- When countdown reaches <0 → auto-return to `results`
 - Any key → return to `results` early
 
 ---
 
 ## Scorecard Layout
 
-640x480 canvas. 11 targets arranged in 3 rows:
+640×480 canvas. 11 targets arranged in 3 rows:
 
 ```
 Row 1 (y=80):   [1]@90   [2]@240   [3]@390   [4]@540
-Row 2 (y=220):  [5]@170  [PROEF]@320         [6]@470
+Row 2 (y=220):  [5]@170  [PRACTICE]@320       [6]@470
 Row 3 (y=350):  [7]@90   [8]@240   [9]@390   [10]@540
 ```
 
-- 10 scoring targets (labeled 1-10)
-- 1 practice target (center, labeled "SLEGS PROEFSKOTE")
-- Each target: 50px radius filled circle with concentric rings at 5, 15, 25, 35px
-- Target fill color: olive (`#808000`), ring color: black
+Target positions (0-indexed array, index 5 is practice):
+
+| Index | x | y | Label |
+|-------|---|---|-------|
+| 0 | 90 | 80 | "1" |
+| 1 | 240 | 80 | "2" |
+| 2 | 390 | 80 | "3" |
+| 3 | 540 | 80 | "4" |
+| 4 | 170 | 220 | "5" |
+| 5 | 320 | 220 | *(practice)* |
+| 6 | 470 | 220 | "6" |
+| 7 | 90 | 350 | "7" |
+| 8 | 240 | 350 | "8" |
+| 9 | 390 | 350 | "9" |
+| 10 | 540 | 350 | "10" |
+
+### Target Appearance
+
+- Filled circle: 50px radius, olive (`#808000`)
+- Concentric rings at radii 5, 15, 25, 35px: black (`#000`), 1px stroke
+- Scoring target number labels: white, 12px monospace, centered, 60px above target center
+- Practice target label: "PRACTICE SHOTS ONLY", white, 11px monospace, centered at (320, 285)
 
 ### Scorecard Labels
-- Top-right: shot counter `Skote: X/10 (Y/13)` — scoring shots / total shots
-- Left side (y=220): "TOTAAL" with live score
-- Right side (y=220): "SPAN" with team name
-- Bottom: "NAAM ........" (left), "S.A.N.S.S.U. 01" (center), "KOMP ........" (right)
-- ECG heartbeat chart above the S.A.N.S.S.U. text
+
+| Element | Position | Color | Font | Content |
+|---------|----------|-------|------|---------|
+| Shot counter (scoring) | left, (40, 208) | `#fff` | 11px serif | `Shots: X/10` |
+| Shot counter (total) | right, (630, 15) | `#fff` | 11px mono, right-aligned | `Y/13` |
+| Total label | (40, 220) | `#fff` | 11px serif | "TOTAL" |
+| Total dots | (40, 235) | `#fff` | 11px serif | "......" |
+| Score value | (42, 248) | `#0a0` | 12px mono | Score number |
+| Team label | (560, 220) | `#fff` | 11px serif | "TEAM" |
+| Team dots | (555, 235) | `#fff` | 11px serif | "........." |
+| Team value | (558, 248) | `#00a` | 12px mono | Team name |
+| Name label | (40, 460) | `#fff` | 11px serif | "NAME ........................" |
+| Name value | (100, 475) | `#00a` | 12px mono | Player name |
+| Comp label | (450, 460) | `#fff` | 11px serif | "COMP .................." |
+| Comp value | (510, 475) | `#00a` | 12px mono | Competition name |
+| Organization | (320, 460) center | `#fff` | bold 20px serif | "S.A.N.S.S.U. 01" |
+
+### Shot Marks
+
+- Color: `#a00` (dark red)
+- Radius: 5px filled circles
+- Drawn at each recorded shot position
 
 ---
 
 ## Crosshair / Sight
 
 ### Appearance
-- Circle of radius 55px (white stroke)
-- Four tick marks extending 10px inward/outward at cardinal points
-- Center dot (2px radius)
 
-### Movement Model
+- Circle: 55px radius, white (`#fff`) stroke, 1px line width
+- Four tick marks: 10px long, extending both inward and outward from the circle at cardinal points (left, right, top, bottom)
+- Center dot: 2px radius, white filled circle
 
-The crosshair position = **center point** + **drift offset**.
+### Position Computation
 
-**Center point** (`cx`, `cy`):
-- Controlled by player input (arrow keys, WASD)
-- Clamped to game boundaries
-- Persists between frames
+The crosshair is drawn at:
 
-**Drift offset** (`driftOx`, `driftOy`):
-- Simulates hand shake — continuous random wandering
-- Velocity-based: random acceleration each frame (±0.06), clamped to 0.5 px/frame max
-- Spring force pulls offset back toward (0,0) — factor 0.005
-- Drag (0.95× per frame) — ground contact dampens movement
-- Bounces off boundaries
-- Parameters tuned for prone position with sling support (minimal wander)
+```
+sightX = cx + driftOx + breathDx
+sightY = cy + driftOy + breathDy
+```
 
-**Heartbeat effect**:
-- Resting rate 60 BPM (dynamic — see heart rate coupling below)
-- Double-bump waveform at beat positions 0-0.08 (systole) and 0.15-0.22 (dicrotic notch)
-- Applies vertical displacement of ±3.5px to drift offset — prone transmits pulse through chest-to-ground contact
-- Synced with ECG chart display (ECG period updates dynamically with BPM)
+Where:
+- `(cx, cy)` = center point (player-controlled)
+- `(driftOx, driftOy)` = hand shake drift offset (includes heartbeat pulse)
+- `(breathDx, breathDy)` = breathing displacement
 
-**Breathing rhythm** (dominant disturbance in prone):
-- 5-second cycle (12 breaths/min): inhale (0–40%), natural pause (40–50%), exhale (50–100%)
-- Inhale lowers the sight (+25px down, +4px right diagonal), exhale raises it back to center — chest rise/fall is the primary motion, large enough to force the player to hold breath for accurate shots
-- Natural pause at 40–50% of cycle is the ideal moment to hold breath and fire
-- **Hold breath** (Shift): gradually settles crosshair toward a rest point over ~500ms (smoothstep easing)
-  - **Timing reward**: hold quality depends on breath cycle phase at press time. Pressing near the natural pause (0.45 in cycle) yields near-zero residual displacement; pressing at the worst point leaves ~3.6px offset
-  - Captures waveform displacement at press time and interpolates toward the timing-dependent rest point
-  - Comfortable hold up to 4.0 seconds (prone is more stable)
-  - Over-holding (past 4.0s): stress ramps 0→1 over 2s, increasing drift speed (×3.0), heart amplitude (×1.8), and adding slow circular wobble (~2Hz, up to 4px amplitude, slightly elliptical) — replaces the previous 15Hz tremor for more realistic muscle fatigue
-  - **Gasp on release**: first 400ms after releasing Shift, crosshair jumps up ~8px (sine arc peaking at 200ms) simulating involuntary inhale, then transitions to exaggerated recovery breathing (1.5× → 1× over 2s)
-- **Heart rate coupling**: over-holding past 4s ramps heart rate target up to 100 BPM, but with delayed onset — HR target stays at resting for the first ~0.5s past the hold limit (`hrStress = max(0, (breathStress - 0.25) / 0.75)`), so HR won't noticeably rise until ~5-6s of holding. Chase is asymmetric: ramp-up rate `0.0004` (~5s to cover 80% of gap) and recovery rate `0.0002` (~10s+), so elevated HR lingers well after release — prevents Shift spamming without consequence
-- Breath indicator bar (25×20px, left of ECG chart): shows lung fill level, green/yellow/red based on state
+The shot lands at `(sightX, sightY)` when the player fires.
 
-> **Note:** All movement parameters are tuned for prone Bisley shooting with sling support. Drift is minimal, breathing is the dominant disturbance (primarily vertical), and heartbeat is transmitted directly through chest-to-ground contact. Stress penalties are sharper to contrast with the otherwise stable platform.
+### Center Point Control
 
-### Boundaries
-- Top: y=55, Bottom: y=430, Left: x=50, Right: x=582
+**Initial position**: (320, 220) — center of the practice target.
+
+**Keyboard movement** (discrete, on keydown):
+
+| Input | Δx | Δy |
+|-------|----|----|
+| Arrow Up | 0 | −10 |
+| Arrow Down | 0 | +10 |
+| Arrow Left | −10 | 0 |
+| Arrow Right | +10 | 0 |
+| W | 0 | −50 |
+| S | 0 | +50 |
+| A | −50 | 0 |
+| D | +50 | 0 |
+
+**Touch joystick** (continuous, per frame): see Touch Controls section.
+
+**Boundary clamping**: After any movement, if `cx ≥ RG` then `cx = RG−1`, if `cx ≤ LG` then `cx = LG+1`, if `cy ≥ OG` then `cy = OG−1`, if `cy ≤ BG` then `cy = BG+1`. A boundary sound plays on clamp.
+
+### Drift / Hand Shake
+
+Simulates hand tremor. Drift is a velocity-driven offset from the center point that wanders randomly and springs back toward zero.
+
+**Per-frame update** (every `requestAnimationFrame` tick):
+
+1. **Random acceleration**: `driftVx += (random()−0.5) × 0.12`, same for `driftVy` (i.e., ±DRIFT_ACCEL where DRIFT_ACCEL=0.06, multiplied by 2)
+2. **Spring force**: `driftVx −= driftOx × 0.005`, `driftVy −= driftOy × 0.005`
+3. **Speed clamp**: max speed = `0.5 × (1 + breathStress × 2.0)` px/frame. If `|velocity| > max`, normalize to max
+4. **Drag**: `driftVx × = 0.95`, `driftVy × = 0.95`
+5. **Apply velocity**: `driftOx += driftVx`, `driftOy += driftVy + heartDy` (heartbeat added to Y only)
+
+If the resulting sight position exceeds boundaries, drift offset is clamped and velocity is reflected (bounced).
+
+### Heartbeat Pulse
+
+Adds a vertical displacement to `driftOy` each frame, simulating pulse transmitted through prone chest-to-ground contact.
+
+**Parameters**:
+- Resting BPM: 60
+- Amplitude: `HEART_AMPLITUDE = 3.5` px (modified by stress: `× (1 + breathStress × 0.8)`)
+
+**Double-bump waveform** (beatPos = 0..1 within one heartbeat cycle):
+
+```
+if beatPos < 0.08:
+    pulse = sin(beatPos / 0.08 × π)           // systolic bump
+else if 0.15 ≤ beatPos < 0.22:
+    pulse = 0.4 × sin((beatPos−0.15) / 0.07 × π)  // dicrotic notch
+else:
+    pulse = 0
+```
+
+Applied as: `heartDy = −pulse × heartAmplitude`
+
+Heart period = `60000 / heartBPM` ms. Phase accumulates via `heartPhase += dt`.
+
+### Breathing Rhythm
+
+Dominant disturbance in prone position. 5-second cycle (12 breaths/min).
+
+**Waveform function** `breathingWaveform(t)` where `t` = 0..1 within one breath cycle:
+
+| Phase | t range | Displacement |
+|-------|---------|-------------|
+| Inhale | 0.0–0.4 | `e = (1 − cos(t/0.4 × π)) / 2`; dy = e × 25.0; dx = e × 4.0 |
+| Natural pause | 0.4–0.5 | dy = 25.0; dx = 4.0 (full displacement held) |
+| Exhale | 0.5–1.0 | `e = (1 − cos((t−0.5)/0.5 × π)) / 2`; dy = (1−e) × 25.0; dx = (1−e) × 4.0 |
+
+Constants: `BREATH_PERIOD = 5000ms`, `BREATH_AMPLITUDE_Y = 25.0px`, `BREATH_AMPLITUDE_X = 4.0px`.
+
+Inhale lowers the sight (+dy = down), exhale raises it back. The natural pause at t=0.4–0.5 is the ideal moment to hold breath and fire.
+
+### Breath Hold
+
+Activated by holding Shift (keyboard) or the breath-hold touch button.
+
+**On press**:
+1. Record `breathHoldPhase` = current position in breath cycle (0..1)
+2. Capture current waveform displacement: `breathHoldStartDx`, `breathHoldStartDy`
+3. Calculate **hold quality** = `1 − min(|breathHoldPhase − 0.45| / 0.45, 1)` — pressing near the natural pause (0.45) yields quality ≈ 1.0; pressing at the worst point yields ≈ 0
+4. Calculate **rest target** (where crosshair settles to):
+   - `breathHoldRestDx = breathHoldStartDx × 0.9`
+   - `breathHoldRestDy = breathHoldStartDy × (0.7 + 0.3 × breathHoldQuality)`
+
+**While held** — settle phase (first 500ms):
+- `settleProgress = min(1, holdElapsed / 500)`
+- Smoothstep easing: `eased = settleProgress² × (3 − 2 × settleProgress)`
+- `breathDx = breathHoldStartDx + (breathHoldRestDx − breathHoldStartDx) × eased`
+- `breathDy = breathHoldStartDy + (breathHoldRestDy − breathHoldStartDy) × eased`
+
+**Over-holding** (past `BREATH_HOLD_MAX = 4000ms`):
+- `breathStress = min(1, (holdElapsed − 4000) / 2000)` — ramps 0→1 over 2s
+- Drift max speed multiplied by `(1 + breathStress × 2.0)` = up to ×3.0
+- Heart amplitude multiplied by `(1 + breathStress × 0.8)` = up to ×1.8
+- **Slow circular wobble** added to breathing displacement:
+  - Frequency: `t × 2π × 2` Hz (where t = performance.now() / 1000)
+  - `breathDx += sin(freq) × breathStress × 4.0`
+  - `breathDy += cos(freq × 0.7) × breathStress × 4.0 × 1.2` (slightly elliptical)
+- **Heart rate target** ramps up with delayed onset:
+  - `hrStress = max(0, (breathStress − 0.25) / 0.75)` — no HR increase in first ~0.5s past limit
+  - `heartBPMTarget = 60 + hrStress × 40` — up to 100 BPM
+
+### Breath Release / Recovery
+
+On releasing Shift (or lifting breath touch button):
+1. `breathHolding = false`, `breathRecovering = true`
+2. `heartBPMTarget` reset to 60
+
+**Gasp phase** (first 400ms after release):
+- `breathDy = 8 × sin(gaspT × π)` where `gaspT = elapsed / 400` — crosshair jumps down ~8px (involuntary inhale arc peaking at 200ms)
+- `breathDx = 0`
+
+**Exaggerated breathing** (400ms to 400ms + `BREATH_RECOVERY_TIME`):
+- `BREATH_RECOVERY_TIME = 2000ms`
+- `recProgress = min(1, (elapsed − 400) / 2000)` — 0 to 1 over 2s
+- Amplitude multiplier: `1.5 − 0.5 × recProgress` (1.5× fading to 1×)
+- `breathStress` fades: `breathStress × (1 − recProgress)`
+- Normal waveform applied with amplitude multiplier
+- When `recProgress ≥ 1`: recovery ends, `breathStress = 0`
+
+### Heart Rate Chase
+
+Heart rate (`heartBPM`) smoothly chases `heartBPMTarget` with asymmetric rates:
+
+```
+rate = 0.0004 if heartBPMTarget > heartBPM else 0.0002
+heartBPM += (heartBPMTarget − heartBPM) × rate × dt
+```
+
+- **Ramp-up**: rate `0.0004` — takes ~5s to cover 80% of gap toward elevated target
+- **Recovery**: rate `0.0002` — takes ~10s+, so elevated HR lingers after release
+- During normal breathing (not holding), target is always 60 BPM
+
+---
+
+## ECG Heartbeat Chart
+
+- **Position**: (220, 432), 200×20px (centered vertically on y=432)
+- **Background**: black fill, dark red border (`#300`), 1px stroke
+- **Trace**: red (`#f00`), 1.5px line width
+- **Buffer**: 200-sample circular buffer (one sample per horizontal pixel)
+- **Time span**: 2000ms visible window → sample interval = 10ms per pixel
+- **Phase tracking**: independent `ecgBeatPhase` (0..1) advanced by `sampleInterval / (60000/heartBPM)` per sample
+
+**ECG waveform function** `heartbeatWaveform(t)` where `t` = 0..1:
+
+| Segment | t range | Value |
+|---------|---------|-------|
+| Baseline | 0.00–0.05 | 0 |
+| P wave | 0.05–0.08 | `0.15 × sin((t−0.05)/0.03 × π)` |
+| PR segment | 0.08–0.12 | 0 |
+| Q dip | 0.12–0.14 | −0.15 |
+| R peak | 0.14–0.18 | `sin((t−0.14)/0.04 × π)` |
+| S dip | 0.18–0.21 | −0.25 |
+| ST return | 0.21–0.25 | `−0.25 × (1 − (t−0.21)/0.04)` |
+| ST segment | 0.25–0.35 | 0 |
+| T wave | 0.35–0.45 | `0.2 × sin((t−0.35)/0.10 × π)` |
+| Baseline | 0.45–1.00 | 0 |
+
+Vertical mapping: `py = centerY − value × (h/2) × 0.85`
+
+---
+
+## Breath Indicator Bar
+
+- **Position**: (185, 432), 25×20px (centered vertically on y=432, left of ECG chart)
+- **Background**: black fill, dark green border (`#030`), 1px stroke
+- **Fill direction**: bottom-up
+- **Fill level**: `breathDy / BREATH_AMPLITUDE_Y` clamped to 0..1
+
+**Bar color states**:
+| Condition | Color |
+|-----------|-------|
+| Stressed (`breathStress > 0.01`) | `rgb(255, 255×(1−stress), 0)` — yellow→red interpolation |
+| Recovering | `#ff0` (yellow) |
+| Holding breath | `#0f0` (bright green) |
+| Normal breathing | `#0a0` (green) |
+
+**Label**: When holding breath, "BREATH" is drawn in 7px monospace above the bar, centered, in the bar's current color.
 
 ---
 
@@ -157,41 +433,42 @@ The crosshair position = **center point** + **drift offset**.
 
 ### Algorithm (ported from Pascal `SCORE` procedure)
 
-For each of the 10 scoring targets:
+For each of the 10 scoring targets (indices 0–4, 6–10):
 1. Find the minimum distance from any fired shot to the target center
-2. Score based on distance bands:
+2. `distance = round(sqrt(dx² + dy²))` where dx, dy are absolute differences
+3. Score based on distance bands:
 
 | Distance (px) | Points |
 |---------------|--------|
-| 0–11          | 10     |
-| 12–21         | 9      |
-| 22–30         | 8      |
-| 31–40         | 7      |
-| 41–56         | 6      |
-| >56           | 0      |
+| 0–11 | 10 |
+| 12–21 | 9 |
+| 22–30 | 8 |
+| 31–40 | 7 |
+| 41–56 | 6 |
+| >56 | 0 |
 
-- Distance = `round(sqrt(dx² + dy²))` where dx, dy are absolute differences
 - Each target scores independently based on its closest shot
 - Maximum total: 100 (10 targets × 10 points)
-- Score updates live after each shot
+- Score recalculated after each shot
 
 ### Scoring vs Practice Shots
-- A shot is classified as "scoring" if its nearest target is any of the 10 numbered targets
-- A shot is "practice" if its nearest target is the center practice target (index 5, at 320,220)
+
+- A shot is "scoring" if its nearest target (by squared Euclidean distance) is any target except index 5 (practice)
+- A shot is "practice" if its nearest target is the practice target at (320, 220)
 - Round ends when 10 scoring shots are fired OR 13 total shots are used
 
 ---
 
 ## Controls
 
-### During Shooting
+### Keyboard — During Shooting
 
 | Input | Action | Amount |
 |-------|--------|--------|
-| Arrow keys | Move center point (medium) | 10px |
+| Arrow keys | Move center point | 10px |
 | W/A/S/D | Move center point (large jump) | 50px |
 | Enter / Space | Fire shot | — |
-| Shift | Hold breath (stabilize aim) | — |
+| Shift (hold) | Hold breath (stabilize aim) | — |
 | 1 | Enter name | — |
 | 2 | Enter team | — |
 | 3 | Enter competition | — |
@@ -201,7 +478,7 @@ For each of the 10 scoring targets:
 | Escape | Exit to intro screen | — |
 | F11 | Toggle fullscreen | — |
 
-### During Results
+### Keyboard — During Results
 
 | Input | Action |
 |-------|--------|
@@ -209,100 +486,115 @@ For each of the 10 scoring targets:
 | 5 | Restart game |
 | Escape | Exit to intro |
 
-### Global (Any State)
+### Keyboard — Other States
 
-| Input | Action |
-|-------|--------|
-| F11 | Toggle fullscreen mode |
-
-### During Other States
-- **drawrose/intro**: any key advances (except `6` → help from intro)
-- **help/scorecard**: any key returns to previous state
+- **Intro**: auto-advances after 5500ms (no keyboard interaction)
+- **Help / Scorecard**: any key returns to previous state
 - **Input overlays**: Enter confirms, Escape cancels
+- **F11**: toggles fullscreen from any state
+
+### Touch Controls
+
+Displayed only on coarse-pointer (touch) devices, only during `shooting` state. All positions/radii are in canvas coordinates.
+
+#### Joystick (left half)
+
+- **Activation zone**: any touch starting in the left half of the canvas (x < 320)
+- **Base**: appears at the touch-down point
+- **Radius**: `JOYSTICK_RADIUS = 60px`
+- **Thumb nub**: 16px radius, white filled, follows finger position clamped to joystick radius
+- **Visual (active)**: outer ring — white stroke, 2px, α=0.35; thumb nub — white fill, α=0.60
+- **Visual (idle hint)**: dashed circle (4px dash, 6px gap) at (110, 390), radius 46px, white α=0.12; "MOVE" label in 10px monospace centered
+- **Movement**: per frame, `cx += (joystickDx / JOYSTICK_RADIUS) × JOYSTICK_MAX_SPEED`, same for cy. `JOYSTICK_MAX_SPEED = 3` px/frame at full deflection. Boundary clamping and sound applied same as keyboard.
+
+#### Fire Button
+
+- **Position**: (570, 420), radius 52px
+- **Idle**: fill `#a00` α=0.40, stroke `#fff` 2px α=0.55, label "FIRE" white bold 13px mono α=0.85
+- **Pressed**: fill `#f55` α=0.75, stroke `#fff` 2px α=0.90, label α=1.0
+- **Behavior**: fires a shot on touch-start (same logic as Enter/Space)
+
+#### Breath-Hold Button
+
+- **Position**: (570, 300), radius 44px
+- **Idle**: fill `#060` α=0.40, stroke `#0f0` 2px α=0.55, label "HOLD / BREATH" white bold 11px mono α=0.85 (two lines: "HOLD" at y−3, "BREATH" at y+11)
+- **Pressed**: fill `#0f0` α=0.75, stroke `#0f0` 2px α=0.90, label α=1.0
+- **Behavior**: activates breath hold on touch-start, releases on touch-end/cancel (same logic as Shift key)
+
+#### Multi-touch
+
+All three touch zones (joystick, fire, breath) track independent touch identifiers, so the player can simultaneously aim with the joystick, hold breath, and fire.
 
 ---
 
 ## Sound Effects
 
-All procedurally generated via `AudioContext` (no audio files).
+All procedurally generated via `AudioContext` oscillators and buffers (no audio files).
 
 | Event | Sound |
 |-------|-------|
-| Fire shot | White noise burst (80ms, exponential decay from 0.4 gain) + sine sweep 150→50Hz over 200ms (gain 0.3). Gives a crack+boom gunshot effect. |
-| Boundary hit | 200Hz for 50ms |
-| Bump/tick | 50Hz for 30ms |
-
----
-
-## ECG Heartbeat Chart
-
-- Position: above "S.A.N.S.S.U. 01" text, at (220, 432), 200×20px
-- Black background with dark red border
-- Red trace (`#f00`), 1.5px line width
-- Shows ~2 heartbeat cycles scrolling left-to-right
-- Waveform: simplified ECG with P wave, QRS complex (Q dip, R peak, S dip), ST segment, T wave
-- Synced to the same heartbeat phase that affects the crosshair
+| Fire shot | Layer 1 — **Crack**: white noise burst (80ms, gain 0.4 → exponential decay to 0.001). Layer 2 — **Boom**: sine oscillator sweeping 150→50 Hz over 200ms (gain 0.3 → 0.001 exponential). |
+| Boundary hit | 200 Hz sine, 50ms, gain 0.15 |
+| Bump/tick | 50 Hz sine, 30ms, gain 0.15 |
 
 ---
 
 ## Visual Style
 
 ### Colors
-| Element | Color | Notes |
-|---------|-------|-------|
-| Background | `#000` | Black |
-| Target fill | `#808000` | Olive/dark yellow |
-| Target rings | `#000` | Black on olive |
-| Crosshair | `#fff` | White |
-| Shot marks | `#a00` | Dark red, 5px radius |
-| Muzzle flash | White→yellow→orange radial gradient | 60px radius, ~100ms fade |
-| Score text | `#0a0` | Green |
-| Highlight text | `#ff0` | Yellow |
-| User data | `#00a` | Dark blue |
-| Overlays | `rgba(0,0,100,0.95)` | Dark blue, near-opaque |
+
+| Element | Color |
+|---------|-------|
+| Background | `#000` |
+| Target fill | `#808000` (olive) |
+| Target rings | `#000` |
+| Crosshair | `#fff` |
+| Shot marks | `#a00` (dark red, 5px radius) |
+| Score text | `#0a0` (green) |
+| Highlight text | `#ff0` (yellow) |
+| User data | `#00a` (dark blue) |
+| Overlays | `rgba(0, 0, 100, 0.95)` |
 
 ### Typography
-- Monospace for UI elements and labels
-- Serif for titles and headings
-- Sans-serif for credits
 
----
-
-## Fullscreen Mode
-
-- Toggle with F11 (intercepted with `preventDefault`, works from any game state)
-- Uses Fullscreen API on the `#game-container` element
-- Canvas CSS-scaled to fit viewport while preserving 4:3 aspect ratio (internal 640x480 resolution unchanged)
-- `.fullscreen` CSS class: flex-centered container at 100vw/100vh, canvas border removed
-- `fullscreenchange` event triggers `updateCanvasScale()` to recalculate dimensions
-- Escape also exits fullscreen (browser default)
+| Usage | Font |
+|-------|------|
+| UI elements, labels, code-like text | monospace |
+| Titles, headings, scorecard headings | serif |
+| Credits, prompts | sans-serif |
 
 ---
 
 ## Player Data
 
-| Field | Max Length | Input Key |
-|-------|-----------|-----------|
-| Naam (Name) | 15 chars | 1 |
-| Span (Team) | 6 chars | 2 |
-| Kompetisie (Competition) | 11 chars | 3 |
+| Field | Max Length | Input Key | Label |
+|-------|-----------|-----------|-------|
+| Name | 15 chars | 1 | "NAME" |
+| Team | 6 chars | 2 | "TEAM" |
+| Competition | 11 chars | 3 | "COMP" |
 
-Displayed on scorecard bottom section. Persists across restarts within the same session.
+Displayed on scorecard bottom section. Persists across restarts within the same session (not cleared by `resetGame`).
 
 ---
 
-## Language
+## Reset Behavior
 
-Primary: Afrikaans (preserving the character of the 1996 original)
-Help screen: Bilingual (Afrikaans / English)
+On restart (`[5]` during shooting or results):
+- Shot count reset to 1, score to 0
+- Center point returns to (320, 220)
+- All drift/velocity zeroed
+- All breathing state reset (phase, hold, recovery, stress)
+- Heart rate reset to 60 BPM
+- Flash cleared
+- Player data (name/team/competition) preserved
 
 ---
 
 ## Known Differences from Pascal Original
 
-1. **No CGA/EGA monitor selection** — web version uses a fixed modern color palette
+1. **No CGA/EGA monitor selection** — fixed modern color palette
 2. **Crosshair rendering** — drawn procedurally each frame instead of GETIMAGE/PUTIMAGE sprite
-3. **Non-blocking architecture** — state machine replaces Pascal's blocking READKEY/DELAY loops
+3. **Non-blocking architecture** — state machine with `requestAnimationFrame` replaces Pascal's blocking READKEY/DELAY loops
 4. **Heartbeat effect** — new feature not in original; adds realistic sight pulse at 60 BPM
 5. **ECG chart** — new feature; visual heartbeat timing aid
 6. **Smooth drift** — velocity-based with spring return, replacing discrete ±5px jumps
@@ -313,13 +605,14 @@ Help screen: Bilingual (Afrikaans / English)
 11. **Gunshot sound** — procedural crack+boom synthesis replacing simple oscillator tones
 12. **Muzzle flash** — visual flash effect on firing (not in original)
 13. **Fullscreen mode** — F11 toggle with aspect-ratio-preserving scaling
-14. **Breathing rhythm** — new feature; adds respiratory sway cycle with hold-breath mechanic (Shift key)
+14. **Breathing rhythm** — respiratory sway cycle with hold-breath mechanic (Shift key)
+15. **Touch controls** — joystick, fire button, and breath-hold button for mobile devices
 
 ---
 
 ## Future Considerations
 
-- Mobile/touch support
+- Drawrose splash screen ("LCC PRODUKSIES" with decorative rose graphic, typewriter effect — present in original Pascal, not yet implemented)
 - Difficulty levels (adjust drift intensity, heartbeat amplitude, BPM)
 - High score persistence (localStorage)
 - Multiplayer / score comparison
