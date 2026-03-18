@@ -501,8 +501,8 @@ Displayed only on coarse-pointer (touch) devices, only during `shooting` state. 
 
 On landscape mobile screens wider than 4:3, the CSS-scaled canvas leaves horizontal margins. Touch controls live in these margins as children of `#game-container`, siblings of the canvas:
 
-- **Left margin**: joystick activation zone
-- **Right margin**: fire button (lower) and breath-hold button (upper)
+- **Left margin**: breath-hold button (upper) and joystick activation zone (lower)
+- **Right margin**: fire button only
 
 `updateCanvasScale()` computes margin widths and positions the control elements accordingly. When margin < 80px (narrow viewport), `#game-container` gets a `.narrow-margins` class — controls overlay the canvas edges with semi-transparency instead.
 
@@ -526,9 +526,9 @@ Controls are hidden via CSS (`display: none`) when not in `shooting` state. Java
 - **Pressed**: fill `#f55` α=0.75, stroke `#fff` 2px α=0.90, label α=1.0
 - **Behavior**: fires a shot on touch-start (same logic as Enter/Space)
 
-#### Breath-Hold Button (right margin, upper)
+#### Breath-Hold Button (left margin, upper)
 
-- **Position**: centered horizontally in right margin, at ~45% viewport height
+- **Position**: centered horizontally in left margin, at ~35% viewport height
 - **Radius**: 44px (screen pixels)
 - **Idle**: fill `#060` α=0.40, stroke `#0f0` 2px α=0.55, label "HOLD / BREATH" white bold 11px mono α=0.85 (two lines: "HOLD" and "BREATH")
 - **Pressed**: fill `#0f0` α=0.75, stroke `#0f0` 2px α=0.90, label α=1.0

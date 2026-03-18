@@ -164,13 +164,13 @@ canvas {
   <canvas id="c" width="640" height="480"></canvas>
   <!-- Touch controls in viewport margins -->
   <div id="touch-left" class="touch-zone">
+    <div id="touch-breath" class="touch-btn"><span>HOLD</span><span>BREATH</span></div>
     <div class="joystick-hint" id="joystick-hint">MOVE</div>
     <div class="joystick-ring" id="joystick-ring"></div>
     <div class="joystick-thumb" id="joystick-thumb"></div>
   </div>
   <div id="touch-right" class="touch-zone">
     <div id="touch-fire" class="touch-btn">FIRE</div>
-    <div id="touch-breath" class="touch-btn"><span>HOLD</span><span>BREATH</span></div>
   </div>
   <div class="input-overlay" id="overlay-name">
     <label>ENTER YOUR NAME</label>
@@ -1477,9 +1477,9 @@ function updateCanvasScale() {
     fireBtnEl.style.left = (zoneW / 2 - 52) + 'px';
     fireBtnEl.style.top  = (vh * 0.75 - 52) + 'px';
 
-    // Position breath button at ~45% height, centered in right zone
+    // Position breath button at ~35% height, centered in left zone
     breathBtnEl.style.left = (zoneW / 2 - 44) + 'px';
-    breathBtnEl.style.top  = (vh * 0.45 - 44) + 'px';
+    breathBtnEl.style.top  = (vh * 0.35 - 44) + 'px';
   }
 }
 

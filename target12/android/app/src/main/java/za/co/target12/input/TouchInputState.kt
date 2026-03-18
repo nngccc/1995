@@ -33,8 +33,8 @@ class TouchInputState {
     val fireBtnScreenY: Float get() = screenHeight * 0.75f
     val fireBtnRadius: Float get() = 52f
 
-    val breathBtnScreenX: Float get() = rightMarginLeft + marginWidth / 2f
-    val breathBtnScreenY: Float get() = screenHeight * 0.45f
+    val breathBtnScreenX: Float get() = leftMarginLeft + marginWidth / 2f
+    val breathBtnScreenY: Float get() = screenHeight * 0.35f
     val breathBtnRadius: Float get() = 44f
 
     val joystickHintScreenX: Float get() = leftMarginLeft + marginWidth / 2f
@@ -59,7 +59,7 @@ class TouchInputState {
             return
         }
 
-        // Breath-hold button (right margin)
+        // Breath-hold button (left margin, checked before joystick catch-all)
         if (breathPointerId == null && ptInCircle(screenX, screenY, breathBtnScreenX, breathBtnScreenY, breathBtnRadius)) {
             breathPointerId = id
             breathJustPressed = true

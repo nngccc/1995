@@ -84,7 +84,7 @@ object TouchControlsRenderer {
         }
         nc.drawText("FIRE", fireX, fireY + 5f, fireTextPaint)
 
-        // Breath-hold button (right margin)
+        // Breath-hold button (left margin)
         val breathX = touch.breathBtnScreenX
         val breathY = touch.breathBtnScreenY
         val breathR = touch.breathBtnRadius
