@@ -607,6 +607,24 @@ On restart (`[5]` during shooting or results):
 
 ---
 
+## App Icon
+
+The app icon represents the game's core gameplay: a crosshair sight on a target.
+
+### Design
+
+- **Background**: dark (`#1a1a1a`) circle
+- **Target ring**: olive (`#808000`) circle, ~60% of icon width
+- **Crosshair**: white (`#fff`) — circle with 4 cardinal tick marks + center dot (matching the in-game sight)
+- **Shot mark**: small dark red (`#a00`) dot, offset slightly from center (signature gameplay element)
+
+### Usage
+
+- **Android**: adaptive icon (vector drawable foreground/background layers) referenced via `android:icon` in AndroidManifest
+- **Web**: inline SVG favicon via `<link rel="icon">` in the HTML `<head>`
+
+---
+
 ## Known Differences from Pascal Original
 
 1. **No CGA/EGA monitor selection** — fixed modern color palette
