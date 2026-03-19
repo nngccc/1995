@@ -513,25 +513,25 @@ Controls are hidden via CSS (`display: none`) when not in `shooting` state. Java
 #### Joystick (left margin)
 
 - **Activation zone**: entire left margin `<div>` (touch-action: none)
-- **Idle hint**: centered in left margin at ~65% viewport height; dashed circle, radius 46px, white α=0.12; "MOVE" label 10px monospace
-- **Active**: base appears at touch-down point within the margin; outer ring — white stroke, 2px, α=0.35; thumb nub — 16px radius, white fill, α=0.60
-- **Radius**: `JOYSTICK_RADIUS = 60px` (screen pixels)
+- **Idle hint**: centered in left margin at ~65% viewport height; filled circle radius 138px, fill `rgba(0,0,170)` α=0.40, stroke `rgba(100,100,255)` 6px α=0.55; "MOVE" label 30px bold monospace white α=0.85
+- **Active**: base appears at touch-down point within the margin; outer ring — white stroke, 6px, α=0.35; thumb nub — 48px radius, white fill, α=0.60
+- **Radius**: `JOYSTICK_RADIUS = 180px` (screen pixels)
 - **Movement**: per frame, `cx += (joystickDx / JOYSTICK_RADIUS) × JOYSTICK_MAX_SPEED`, same for cy. `JOYSTICK_MAX_SPEED = 3` px/frame at full deflection. Boundary clamping and sound applied same as keyboard.
 
 #### Fire Button (right margin, lower)
 
 - **Position**: centered horizontally in right margin, at ~75% viewport height
-- **Radius**: 52px (screen pixels)
-- **Idle**: fill `#a00` α=0.40, stroke `#fff` 2px α=0.55, label "FIRE" white bold 13px mono α=0.85
-- **Pressed**: fill `#f55` α=0.75, stroke `#fff` 2px α=0.90, label α=1.0
+- **Radius**: 156px (screen pixels)
+- **Idle**: fill `#a00` α=0.40, stroke `#fff` 6px α=0.55, label "FIRE" white bold 39px mono α=0.85
+- **Pressed**: fill `#f55` α=0.75, stroke `#fff` 6px α=0.90, label α=1.0
 - **Behavior**: fires a shot on touch-start (same logic as Enter/Space)
 
 #### Breath-Hold Button (left margin, upper)
 
 - **Position**: centered horizontally in left margin, at ~35% viewport height
-- **Radius**: 44px (screen pixels)
-- **Idle**: fill `#060` α=0.40, stroke `#0f0` 2px α=0.55, label "HOLD / BREATH" white bold 11px mono α=0.85 (two lines: "HOLD" and "BREATH")
-- **Pressed**: fill `#0f0` α=0.75, stroke `#0f0` 2px α=0.90, label α=1.0
+- **Radius**: 132px (screen pixels)
+- **Idle**: fill `#060` α=0.40, stroke `#0f0` 6px α=0.55, label "HOLD / BREATH" white bold 33px mono α=0.85 (two lines: "HOLD" and "BREATH")
+- **Pressed**: fill `#0f0` α=0.75, stroke `#0f0` 6px α=0.90, label α=1.0
 - **Behavior**: activates breath hold on touch-start, releases on touch-end/cancel (same logic as Shift key)
 
 #### Multi-touch

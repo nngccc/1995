@@ -1,6 +1,5 @@
 package za.co.target12.ui.rendering
 
-import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Typeface
 import za.co.target12.GameConstants.JOYSTICK_RADIUS
@@ -18,7 +17,7 @@ object TouchControlsRenderer {
             val ringPaint = Paint().apply {
                 color = 0xFFFFFFFF.toInt()
                 style = Paint.Style.STROKE
-                strokeWidth = 2f
+                strokeWidth = 6f
                 alpha = 89 // 0.35
                 isAntiAlias = true
             }
@@ -29,29 +28,35 @@ object TouchControlsRenderer {
                 alpha = 153 // 0.60
                 isAntiAlias = true
             }
-            nc.drawCircle(touch.joystickBaseX + touch.joystickDx, touch.joystickBaseY + touch.joystickDy, 16f, thumbPaint)
+            nc.drawCircle(touch.joystickBaseX + touch.joystickDx, touch.joystickBaseY + touch.joystickDy, 48f, thumbPaint)
         } else {
-            // Idle hint at margin center
+            // Idle hint at margin center — visible like other buttons
             val hintX = touch.joystickHintScreenX
             val hintY = touch.joystickHintScreenY
-            val hintRingPaint = Paint().apply {
-                color = 0xFFFFFFFF.toInt()
-                style = Paint.Style.STROKE
-                strokeWidth = 1f
-                alpha = 31 // 0.12
-                pathEffect = DashPathEffect(floatArrayOf(4f, 6f), 0f)
+            val hintFillPaint = Paint().apply {
+                color = 0xFF0000AA.toInt()
+                style = Paint.Style.FILL
+                alpha = 102 // 0.40
                 isAntiAlias = true
             }
-            nc.drawCircle(hintX, hintY, 46f, hintRingPaint)
+            nc.drawCircle(hintX, hintY, 138f, hintFillPaint)
+            val hintRingPaint = Paint().apply {
+                color = 0xFF6464FF.toInt()
+                style = Paint.Style.STROKE
+                strokeWidth = 6f
+                alpha = 140 // 0.55
+                isAntiAlias = true
+            }
+            nc.drawCircle(hintX, hintY, 138f, hintRingPaint)
             val hintTextPaint = Paint().apply {
                 color = 0xFFFFFFFF.toInt()
-                typeface = Typeface.MONOSPACE
-                textSize = 10f
+                typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+                textSize = 30f
                 textAlign = Paint.Align.CENTER
-                alpha = 31
+                alpha = 217 // 0.85
                 isAntiAlias = true
             }
-            nc.drawText("MOVE", hintX, hintY + 3f, hintTextPaint)
+            nc.drawText("MOVE", hintX, hintY + 9f, hintTextPaint)
         }
 
         // Fire button (right margin)
@@ -69,7 +74,7 @@ object TouchControlsRenderer {
         val fireStrokePaint = Paint().apply {
             color = 0xFFFFFFFF.toInt()
             style = Paint.Style.STROKE
-            strokeWidth = 2f
+            strokeWidth = 6f
             alpha = if (firePressed) 230 else 140
             isAntiAlias = true
         }
@@ -77,12 +82,12 @@ object TouchControlsRenderer {
         val fireTextPaint = Paint().apply {
             color = 0xFFFFFFFF.toInt()
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-            textSize = 13f
+            textSize = 39f
             textAlign = Paint.Align.CENTER
             alpha = if (firePressed) 255 else 217
             isAntiAlias = true
         }
-        nc.drawText("FIRE", fireX, fireY + 5f, fireTextPaint)
+        nc.drawText("FIRE", fireX, fireY + 15f, fireTextPaint)
 
         // Breath-hold button (left margin)
         val breathX = touch.breathBtnScreenX
@@ -99,7 +104,7 @@ object TouchControlsRenderer {
         val breathStrokePaint = Paint().apply {
             color = 0xFF00FF00.toInt()
             style = Paint.Style.STROKE
-            strokeWidth = 2f
+            strokeWidth = 6f
             alpha = if (breathPressed) 230 else 140
             isAntiAlias = true
         }
@@ -107,12 +112,12 @@ object TouchControlsRenderer {
         val breathTextPaint = Paint().apply {
             color = 0xFFFFFFFF.toInt()
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-            textSize = 11f
+            textSize = 33f
             textAlign = Paint.Align.CENTER
             alpha = if (breathPressed) 255 else 217
             isAntiAlias = true
         }
-        nc.drawText("HOLD", breathX, breathY - 3f, breathTextPaint)
-        nc.drawText("BREATH", breathX, breathY + 11f, breathTextPaint)
+        nc.drawText("HOLD", breathX, breathY - 9f, breathTextPaint)
+        nc.drawText("BREATH", breathX, breathY + 33f, breathTextPaint)
     }
 }

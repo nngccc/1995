@@ -46,7 +46,7 @@ object GameConstants {
     const val BREATH_RECOVERY_TIME = 2000f
 
     // Touch controls
-    const val JOYSTICK_RADIUS = 60f
+    const val JOYSTICK_RADIUS = 180f
     const val JOYSTICK_MAX_SPEED = 3f
 
     // Target positions

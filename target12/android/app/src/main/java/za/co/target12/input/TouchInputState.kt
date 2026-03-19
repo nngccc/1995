@@ -31,11 +31,11 @@ class TouchInputState {
     // Button centers in screen coordinates (computed from margin layout)
     val fireBtnScreenX: Float get() = rightMarginLeft + marginWidth / 2f
     val fireBtnScreenY: Float get() = screenHeight * 0.75f
-    val fireBtnRadius: Float get() = 52f
+    val fireBtnRadius: Float get() = 156f
 
     val breathBtnScreenX: Float get() = leftMarginLeft + marginWidth / 2f
     val breathBtnScreenY: Float get() = screenHeight * 0.35f
-    val breathBtnRadius: Float get() = 44f
+    val breathBtnRadius: Float get() = 132f
 
     val joystickHintScreenX: Float get() = leftMarginLeft + marginWidth / 2f
     val joystickHintScreenY: Float get() = screenHeight * 0.65f

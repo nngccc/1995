@@ -61,20 +61,20 @@ canvas {
   -webkit-user-select: none;
 }
 #touch-fire {
-  width: 104px; height: 104px;
+  width: 312px; height: 312px;
   background: rgba(170, 0, 0, 0.40);
-  border: 2px solid rgba(255, 255, 255, 0.55);
-  font-size: 13px;
+  border: 6px solid rgba(255, 255, 255, 0.55);
+  font-size: 39px;
 }
 #touch-fire.pressed {
   background: rgba(255, 85, 85, 0.75);
   border-color: rgba(255, 255, 255, 0.90);
 }
 #touch-breath {
-  width: 88px; height: 88px;
+  width: 264px; height: 264px;
   background: rgba(0, 102, 0, 0.40);
-  border: 2px solid rgba(0, 255, 0, 0.55);
-  font-size: 11px;
+  border: 6px solid rgba(0, 255, 0, 0.55);
+  font-size: 33px;
   line-height: 1.3;
 }
 #touch-breath.pressed {
@@ -83,28 +83,30 @@ canvas {
 }
 .joystick-hint {
   position: absolute;
-  width: 92px; height: 92px;
-  border: 1px dashed rgba(255, 255, 255, 0.12);
+  width: 276px; height: 276px;
+  background: rgba(0, 0, 170, 0.40);
+  border: 6px solid rgba(100, 100, 255, 0.55);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: monospace;
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.12);
+  font-weight: bold;
+  font-size: 30px;
+  color: rgba(255, 255, 255, 0.85);
   pointer-events: none;
 }
 .joystick-ring {
   position: absolute;
-  width: 120px; height: 120px;
-  border: 2px solid rgba(255, 255, 255, 0.35);
+  width: 360px; height: 360px;
+  border: 6px solid rgba(255, 255, 255, 0.35);
   border-radius: 50%;
   pointer-events: none;
   display: none;
 }
 .joystick-thumb {
   position: absolute;
-  width: 32px; height: 32px;
+  width: 96px; height: 96px;
   background: rgba(255, 255, 255, 0.60);
   border-radius: 50%;
   pointer-events: none;
@@ -270,7 +272,7 @@ let joystickBaseX    = 0;
 let joystickBaseY    = 0;
 let joystickDx       = 0;
 let joystickDy       = 0;
-const JOYSTICK_RADIUS    = 60;  // screen px
+const JOYSTICK_RADIUS    = 180;  // screen px
 const JOYSTICK_MAX_SPEED = 3;   // px/frame at full deflection
 
 // Button state
@@ -1050,11 +1052,11 @@ if (isTouchDevice) {
     // Show ring at touch point
     joystickHint.style.display = 'none';
     joystickRing.style.display = 'block';
-    joystickRing.style.left = (joystickBaseX - 60) + 'px';
-    joystickRing.style.top  = (joystickBaseY - 60) + 'px';
+    joystickRing.style.left = (joystickBaseX - 180) + 'px';
+    joystickRing.style.top  = (joystickBaseY - 180) + 'px';
     joystickThumb.style.display = 'block';
-    joystickThumb.style.left = (joystickBaseX - 16) + 'px';
-    joystickThumb.style.top  = (joystickBaseY - 16) + 'px';
+    joystickThumb.style.left = (joystickBaseX - 48) + 'px';
+    joystickThumb.style.top  = (joystickBaseY - 48) + 'px';
   }, { passive: false });
 
   touchLeft.addEventListener('touchmove', (e) => {
@@ -1068,8 +1070,8 @@ if (isTouchDevice) {
     if (dist > JOYSTICK_RADIUS) { dx = dx/dist*JOYSTICK_RADIUS; dy = dy/dist*JOYSTICK_RADIUS; }
     joystickDx = dx;
     joystickDy = dy;
-    joystickThumb.style.left = (joystickBaseX + dx - 16) + 'px';
-    joystickThumb.style.top  = (joystickBaseY + dy - 16) + 'px';
+    joystickThumb.style.left = (joystickBaseX + dx - 48) + 'px';
+    joystickThumb.style.top  = (joystickBaseY + dy - 48) + 'px';
   }, { passive: false });
 
   function joystickEnd(e) {
@@ -1466,20 +1468,20 @@ function updateCanvasScale() {
     touchLeft.style.left = (narrow ? canvasLeft - 10 : 0) + 'px';
 
     // Position joystick hint in left zone at ~65% height
-    joystickHint.style.left = (zoneW / 2 - 46) + 'px';
-    joystickHint.style.top  = (vh * 0.65 - 46) + 'px';
+    joystickHint.style.left = (zoneW / 2 - 138) + 'px';
+    joystickHint.style.top  = (vh * 0.65 - 138) + 'px';
 
     // Right zone: covers right margin
     touchRight.style.width = zoneW + 'px';
     touchRight.style.right = (narrow ? canvasLeft - 10 : 0) + 'px';
 
     // Position fire button at ~75% height, centered in right zone
-    fireBtnEl.style.left = (zoneW / 2 - 52) + 'px';
-    fireBtnEl.style.top  = (vh * 0.75 - 52) + 'px';
+    fireBtnEl.style.left = (zoneW / 2 - 156) + 'px';
+    fireBtnEl.style.top  = (vh * 0.75 - 156) + 'px';
 
     // Position breath button at ~35% height, centered in left zone
-    breathBtnEl.style.left = (zoneW / 2 - 44) + 'px';
-    breathBtnEl.style.top  = (vh * 0.35 - 44) + 'px';
+    breathBtnEl.style.left = (zoneW / 2 - 132) + 'px';
+    breathBtnEl.style.top  = (vh * 0.35 - 132) + 'px';
   }
 }
 
