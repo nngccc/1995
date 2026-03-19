@@ -613,10 +613,9 @@ The app icon represents the game's core gameplay: a crosshair sight on a target.
 
 ### Design
 
-- **Background**: dark (`#1a1a1a`) circle
-- **Target ring**: olive (`#808000`) circle, ~60% of icon width
+- **Background**: olive/yellow (`#808000`) — matching the in-game target fill color
+- **Target rings**: 4 black (`#000`) concentric rings, zoomed in so outer rings are clipped by the icon boundary
 - **Crosshair**: white (`#fff`) — circle with 4 cardinal tick marks + center dot (matching the in-game sight)
-- **Shot mark**: small dark red (`#a00`) dot, offset slightly from center (signature gameplay element)
 
 ### Usage
 
