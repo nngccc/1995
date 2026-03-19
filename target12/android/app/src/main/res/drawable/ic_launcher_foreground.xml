@@ -5,27 +5,32 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Target rings (black concentric, zoomed in) -->
-    <path
-        android:strokeColor="#000000"
-        android:strokeWidth="1.5"
-        android:fillColor="#00000000"
-        android:pathData="M54,54m-56,0a56,56 0,1 1,112 0a56,56 0,1 1,-112 0" />
-    <path
-        android:strokeColor="#000000"
-        android:strokeWidth="1.5"
-        android:fillColor="#00000000"
-        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0" />
-    <path
-        android:strokeColor="#000000"
-        android:strokeWidth="1.5"
-        android:fillColor="#00000000"
-        android:pathData="M54,54m-24,0a24,24 0,1 1,48 0a24,24 0,1 1,-48 0" />
-    <path
-        android:strokeColor="#000000"
-        android:strokeWidth="1.5"
-        android:fillColor="#00000000"
-        android:pathData="M54,54m-8,0a8,8 0,1 1,16 0a8,8 0,1 1,-16 0" />
+    <!-- Target dots: 4-3-4 pattern matching target sheet layout -->
+    <!-- Row 1 (y=40): 4 dots -->
+    <path android:fillColor="#000000"
+        android:pathData="M33,40m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <path android:fillColor="#000000"
+        android:pathData="M45,40m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <path android:fillColor="#000000"
+        android:pathData="M57,40m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <path android:fillColor="#000000"
+        android:pathData="M69,40m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <!-- Row 2 (y=54): 3 dots -->
+    <path android:fillColor="#000000"
+        android:pathData="M39,54m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <path android:fillColor="#000000"
+        android:pathData="M54,54m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <path android:fillColor="#000000"
+        android:pathData="M69,54m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <!-- Row 3 (y=68): 4 dots -->
+    <path android:fillColor="#000000"
+        android:pathData="M33,68m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <path android:fillColor="#000000"
+        android:pathData="M45,68m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <path android:fillColor="#000000"
+        android:pathData="M57,68m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <path android:fillColor="#000000"
+        android:pathData="M69,68m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
 
     <!-- Crosshair circle -->
     <path
