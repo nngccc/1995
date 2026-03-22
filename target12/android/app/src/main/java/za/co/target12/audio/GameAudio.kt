@@ -8,117 +8,85 @@ import kotlin.math.exp
 import kotlin.math.sin
 import kotlin.random.Random
 
-class GameAudio {
-    private val sampleRate = 22050
-    private val fireBuffer: ShortArray
-    private val boundaryBuffer: ShortArray
-    private val bumpBuffer: ShortArray
+object GameAudio {
+    private const val SAMPLE_RATE = 44100
 
-    private var fireTrack: AudioTrack? = null
-    private var boundaryTrack: AudioTrack? = null
-    private var bumpTrack: AudioTrack? = null
-
-    init {
-        fireBuffer = generateFireSound()
-        boundaryBuffer = generateTone(200f, 50, 0.15f)
-        bumpBuffer = generateTone(50f, 30, 0.15f)
-    }
-
-    fun init() {
-        val attrs = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_GAME)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-        val format = AudioFormat.Builder()
-            .setSampleRate(sampleRate)
-            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-            .build()
-
-        fireTrack = createTrack(attrs, format, fireBuffer)
-        boundaryTrack = createTrack(attrs, format, boundaryBuffer)
-        bumpTrack = createTrack(attrs, format, bumpBuffer)
-    }
-
-    private fun createTrack(attrs: AudioAttributes, format: AudioFormat, buffer: ShortArray): AudioTrack {
+    private fun playBuffer(samples: FloatArray) {
         val track = AudioTrack.Builder()
-            .setAudioAttributes(attrs)
-            .setAudioFormat(format)
-            .setBufferSizeInBytes(buffer.size * 2)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_GAME)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+                    .setSampleRate(SAMPLE_RATE)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                    .build()
+            )
+            .setBufferSizeInBytes(samples.size * 4)
             .setTransferMode(AudioTrack.MODE_STATIC)
             .build()
-        track.write(buffer, 0, buffer.size)
-        return track
+        track.write(samples, 0, samples.size, AudioTrack.WRITE_BLOCKING)
+        track.setNotificationMarkerPosition(samples.size)
+        track.setPlaybackPositionUpdateListener(object : AudioTrack.OnPlaybackPositionUpdateListener {
+            override fun onMarkerReached(t: AudioTrack) { t.release() }
+            override fun onPeriodicNotification(t: AudioTrack) {}
+        })
+        track.play()
     }
 
-    fun playFire() {
-        playTrack(fireTrack, fireBuffer)
-    }
+    fun playFireSound() {
+        Thread {
+            val durationMs = 200
+            val numSamples = SAMPLE_RATE * durationMs / 1000
+            val samples = FloatArray(numSamples)
 
-    fun playBoundary() {
-        playTrack(boundaryTrack, boundaryBuffer)
-    }
+            for (i in 0 until numSamples) {
+                val t = i.toFloat() / SAMPLE_RATE
+                val tMs = t * 1000f
 
-    fun playBump() {
-        playTrack(bumpTrack, bumpBuffer)
-    }
+                // Layer 1: crack (white noise, 80ms, gain 0.4 exp decay)
+                var s = 0f
+                if (tMs < 80f) {
+                    val env = 0.4f * exp(-tMs / 15f)
+                    s += (Random.nextFloat() * 2f - 1f) * env
+                }
 
-    private fun playTrack(track: AudioTrack?, @Suppress("UNUSED_PARAMETER") buffer: ShortArray) {
-        track?.let {
-            try {
-                it.stop()
-            } catch (_: IllegalStateException) {}
-            it.reloadStaticData()
-            it.play()
-        }
-    }
+                // Layer 2: boom (sine sweep 150→50 Hz over 200ms)
+                val freq = 150f - (150f - 50f) * (tMs / 200f).coerceIn(0f, 1f)
+                val boomEnv = 0.3f * exp(-tMs / 40f)
+                s += sin(2f * PI.toFloat() * freq * t) * boomEnv
 
-    fun release() {
-        fireTrack?.release()
-        boundaryTrack?.release()
-        bumpTrack?.release()
-        fireTrack = null
-        boundaryTrack = null
-        bumpTrack = null
-    }
-
-    private fun generateFireSound(): ShortArray {
-        // Layer 1: white noise burst 80ms, gain 0.4 → decay
-        // Layer 2: sine sweep 150→50Hz over 200ms, gain 0.3 → decay
-        val durationMs = 200
-        val samples = sampleRate * durationMs / 1000
-        val buffer = ShortArray(samples)
-        val noiseSamples = sampleRate * 80 / 1000
-
-        for (i in 0 until samples) {
-            val t = i.toFloat() / sampleRate
-            var sample = 0f
-
-            // Noise layer (80ms)
-            if (i < noiseSamples) {
-                val noiseDecay = exp(-t / 0.02f) * 0.4f
-                sample += (Random.nextFloat() * 2f - 1f) * noiseDecay
+                samples[i] = s.coerceIn(-1f, 1f)
             }
-
-            // Sine sweep layer (200ms)
-            val sweepProgress = t / 0.2f
-            val freq = 150f - 100f * sweepProgress // 150→50Hz
-            val boomDecay = exp(-t / 0.06f) * 0.3f
-            sample += sin(2f * PI.toFloat() * freq * t) * boomDecay
-
-            buffer[i] = (sample * Short.MAX_VALUE).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
-        }
-        return buffer
+            playBuffer(samples)
+        }.start()
     }
 
-    private fun generateTone(freq: Float, durationMs: Int, gain: Float): ShortArray {
-        val samples = sampleRate * durationMs / 1000
-        val buffer = ShortArray(samples)
-        for (i in 0 until samples) {
-            val t = i.toFloat() / sampleRate
-            val sample = sin(2f * PI.toFloat() * freq * t) * gain
-            buffer[i] = (sample * Short.MAX_VALUE).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
-        }
-        return buffer
+    fun playBoundarySound() {
+        Thread {
+            val numSamples = SAMPLE_RATE * 50 / 1000
+            val samples = FloatArray(numSamples)
+            for (i in 0 until numSamples) {
+                val t = i.toFloat() / SAMPLE_RATE
+                samples[i] = (sin(2f * PI.toFloat() * 200f * t) * 0.15f).coerceIn(-1f, 1f)
+            }
+            playBuffer(samples)
+        }.start()
+    }
+
+    fun playBumpSound() {
+        Thread {
+            val numSamples = SAMPLE_RATE * 30 / 1000
+            val samples = FloatArray(numSamples)
+            for (i in 0 until numSamples) {
+                val t = i.toFloat() / SAMPLE_RATE
+                samples[i] = (sin(2f * PI.toFloat() * 50f * t) * 0.15f).coerceIn(-1f, 1f)
+            }
+            playBuffer(samples)
+        }.start()
     }
 }

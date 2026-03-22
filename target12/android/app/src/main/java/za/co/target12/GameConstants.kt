@@ -1,81 +1,103 @@
 package za.co.target12
 
 object GameConstants {
-    // Virtual canvas
-    const val CANVAS_W = 640f
-    const val CANVAS_H = 480f
+    const val CANVAS_WIDTH = 640f
+    const val CANVAS_HEIGHT = 480f
 
     // Playfield boundaries
-    const val BG = 55f   // top
-    const val OG = 430f  // bottom
-    const val LG = 50f   // left
-    const val RG = 582f  // right
+    const val BG = 55f
+    const val OG = 430f
+    const val LG = 50f
+    const val RG = 582f
+
+    // Target positions — index 5 is practice
+    val TARGET_X = floatArrayOf(90f, 240f, 390f, 540f, 170f, 320f, 470f, 90f, 240f, 390f, 540f)
+    val TARGET_Y = floatArrayOf(80f, 80f, 80f, 80f, 220f, 220f, 220f, 350f, 350f, 350f, 350f)
+    val TARGET_LABELS = arrayOf("1", "2", "3", "4", "5", "", "6", "7", "8", "9", "10")
+    const val TARGET_COUNT = 11
+    const val PRACTICE_INDEX = 5
+    const val TARGET_RADIUS = 50f
+    val TARGET_RINGS = floatArrayOf(5f, 15f, 25f, 35f)
 
     // Crosshair
-    const val GR = 55f   // circle radius
-    const val SK = 5f    // shot dot radius
+    const val CROSSHAIR_RADIUS = 55f
+    const val CROSSHAIR_TICK = 10f
+    const val CENTER_DOT_RADIUS = 2f
 
-    // Movement
-    const val XD = 10f   // arrow key move
-    const val YW_MOVE = 10f
-    const val XJ = 50f   // WASD jump
-    const val YJ = 50f
+    // Initial center
+    const val INITIAL_CX = 320f
+    const val INITIAL_CY = 220f
 
-    // Total shots
-    const val RONTES = 13
+    // Movement steps
+    const val MOVE_SMALL = 10f
+    const val MOVE_LARGE = 50f
 
-    // Drift / hand shake
-    const val DRIFT_MAX_SPEED = 0.5f
+    // Drift
     const val DRIFT_ACCEL = 0.06f
     const val DRIFT_SPRING = 0.005f
+    const val DRIFT_MAX_SPEED = 0.5f
     const val DRIFT_DRAG = 0.95f
 
     // Heartbeat
     const val HEART_AMPLITUDE = 3.5f
-    const val RESTING_BPM = 60f
-
-    // ECG chart
-    const val ECG_CHART_WIDTH = 200
-    const val ECG_CHART_TIMESPAN = 2000f
+    const val HEART_BPM_DEFAULT = 60f
+    const val HEART_CHASE_UP = 0.0004f
+    const val HEART_CHASE_DOWN = 0.0002f
 
     // Breathing
     const val BREATH_PERIOD = 5000f
-    const val BREATH_AMPLITUDE_Y = 25.0f
-    const val BREATH_AMPLITUDE_X = 4.0f
+    const val BREATH_AMP_Y = 25.0f
+    const val BREATH_AMP_X = 4.0f
     const val BREATH_HOLD_MAX = 4000f
     const val BREATH_RECOVERY_TIME = 2000f
+    const val BREATH_GASP_DURATION = 400f
 
-    // Touch controls
+    // Scoring
+    const val MAX_SCORING_SHOTS = 10
+    const val MAX_TOTAL_SHOTS = 13
+
+    // Shot marks
+    const val SHOT_MARK_RADIUS = 5f
+
+    // ECG
+    const val ECG_X = 220f
+    const val ECG_Y = 432f
+    const val ECG_W = 200f
+    const val ECG_H = 20f
+    const val ECG_BUFFER_SIZE = 200
+    const val ECG_SAMPLE_INTERVAL = 10f
+
+    // Breath bar
+    const val BAR_X = 185f
+    const val BAR_Y = 432f
+    const val BAR_W = 25f
+    const val BAR_H = 20f
+
+    // Flash
+    const val FLASH_RADIUS = 60f
+
+    // Intro
+    val DEMO_SHOT_TIMES = longArrayOf(1500L, 2500L, 3500L)
+    val DEMO_SHOT_X = floatArrayOf(340f, 320f, 320f)
+    val DEMO_SHOT_Y = floatArrayOf(255f, 260f, 275f)
+    val DEMO_TARGET_X = floatArrayOf(170f, 320f, 470f)
+    const val DEMO_TARGET_Y = 275f
+    const val INTRO_ADVANCE_MS = 5500L
+
+    // Scorecard countdown
+    const val SCORECARD_COUNTDOWN = 9
+
+    // Joystick
     const val JOYSTICK_RADIUS = 180f
     const val JOYSTICK_MAX_SPEED = 3f
 
-    // Target positions
-    data class Target(val x: Float, val y: Float, val label: String)
-
-    val TARGETS = arrayOf(
-        Target(90f, 80f, "1"),
-        Target(240f, 80f, "2"),
-        Target(390f, 80f, "3"),
-        Target(540f, 80f, "4"),
-        Target(170f, 220f, "5"),
-        Target(320f, 220f, ""),   // practice (index 5)
-        Target(470f, 220f, "6"),
-        Target(90f, 350f, "7"),
-        Target(240f, 350f, "8"),
-        Target(390f, 350f, "9"),
-        Target(540f, 350f, "10"),
-    )
-
-    val SCORING_TARGETS = intArrayOf(0, 1, 2, 3, 4, 6, 7, 8, 9, 10)
-
-    // Intro demo shot positions and timings
-    val DEMO_SHOTS = arrayOf(
-        Triple(1500L, 340f, 255f),
-        Triple(2500L, 320f, 260f),
-        Triple(3500L, 320f, 275f),
-    )
-    const val INTRO_AUTO_ADVANCE = 5500L
-
-    // Scorecard countdown
-    const val SCORECARD_COUNTDOWN_START = 9
+    // Overlay rects
+    const val RESULTS_X = 130f
+    const val RESULTS_Y = 80f
+    const val RESULTS_W = 380f
+    const val RESULTS_H = 340f
+    const val HELP_X = 130f
+    const val HELP_Y = 80f
+    const val HELP_W = 380f
+    const val HELP_H = 374f
 }

@@ -1,58 +1,67 @@
 package za.co.target12.scoring
 
-import za.co.target12.GameConstants.RONTES
-import za.co.target12.GameConstants.SCORING_TARGETS
-import za.co.target12.GameConstants.TARGETS
-import kotlin.math.abs
+import za.co.target12.GameConstants
+import za.co.target12.GameState
+import za.co.target12.Shot
 import kotlin.math.round
 import kotlin.math.sqrt
 
 object ScoringEngine {
 
-    fun calculateScore(shotX: FloatArray, shotY: FloatArray, shotCount: Int): Int {
+    /** Returns true if round has ended. */
+    fun processShot(state: GameState): Boolean {
+        val shot = Shot(state.sightX, state.sightY)
+        state.shots.add(shot)
+        state.totalShots++
+
+        // Determine nearest target
+        val nearestIdx = nearestTarget(shot)
+        if (nearestIdx != GameConstants.PRACTICE_INDEX) {
+            state.scoringShots++
+        }
+
+        // Recalculate score
+        state.score = computeScore(state)
+
+        // Round ends?
+        return state.scoringShots >= GameConstants.MAX_SCORING_SHOTS ||
+                state.totalShots >= GameConstants.MAX_TOTAL_SHOTS
+    }
+
+    private fun nearestTarget(shot: Shot): Int {
+        var minDist = Float.MAX_VALUE
+        var idx = 0
+        for (i in 0 until GameConstants.TARGET_COUNT) {
+            val dx = shot.x - GameConstants.TARGET_X[i]
+            val dy = shot.y - GameConstants.TARGET_Y[i]
+            val d = dx * dx + dy * dy
+            if (d < minDist) { minDist = d; idx = i }
+        }
+        return idx
+    }
+
+    private fun computeScore(state: GameState): Int {
         var total = 0
-        for (ti in SCORING_TARGETS) {
-            val tx = TARGETS[ti].x
-            val ty = TARGETS[ti].y
-            var minDist = 60f
-
-            for (s in 1..minOf(shotCount, RONTES)) {
-                if (shotX[s] == 0f && shotY[s] == 0f) continue
-                val dx = abs(tx - shotX[s])
-                val dy = abs(ty - shotY[s])
-                val dist = round(sqrt(dx * dx + dy * dy))
-                if (dist < minDist) minDist = dist
+        for (i in 0 until GameConstants.TARGET_COUNT) {
+            if (i == GameConstants.PRACTICE_INDEX) continue
+            var minDist = Float.MAX_VALUE
+            for (shot in state.shots) {
+                val dx = shot.x - GameConstants.TARGET_X[i]
+                val dy = shot.y - GameConstants.TARGET_Y[i]
+                val d = sqrt(dx * dx + dy * dy)
+                if (d < minDist) minDist = d
             }
-
-            total += when {
-                minDist <= 11f -> 10
-                minDist <= 21f -> 9
-                minDist <= 30f -> 8
-                minDist <= 40f -> 7
-                minDist <= 56f -> 6
-                else -> 0
-            }
+            total += distanceToPoints(round(minDist).toInt())
         }
         return total
     }
 
-    fun countScoringShots(shotX: FloatArray, shotY: FloatArray, currentShot: Int): Int {
-        var count = 0
-        for (s in 1 until currentShot) {
-            if (shotX[s] == 0f && shotY[s] == 0f) continue
-            var minDist = Float.MAX_VALUE
-            var closestIdx = -1
-            for (ti in TARGETS.indices) {
-                val dx = TARGETS[ti].x - shotX[s]
-                val dy = TARGETS[ti].y - shotY[s]
-                val dist = dx * dx + dy * dy
-                if (dist < minDist) {
-                    minDist = dist
-                    closestIdx = ti
-                }
-            }
-            if (closestIdx != 5) count++
-        }
-        return count
+    private fun distanceToPoints(dist: Int): Int = when {
+        dist <= 11 -> 10
+        dist <= 21 -> 9
+        dist <= 30 -> 8
+        dist <= 40 -> 7
+        dist <= 56 -> 6
+        else -> 0
     }
 }

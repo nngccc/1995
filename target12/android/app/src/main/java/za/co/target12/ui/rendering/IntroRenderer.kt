@@ -2,83 +2,67 @@ package za.co.target12.ui.rendering
 
 import android.graphics.Paint
 import android.graphics.Typeface
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import za.co.target12.GameConstants
 import za.co.target12.GameState
 
 object IntroRenderer {
+    private val olive = Color(0xFF808000)
+    private val shotColor = Color(0xFFAA0000)
 
-    private val greenPaint = Paint().apply {
-        color = 0xFF00AA00.toInt()
-        typeface = Typeface.SERIF
-        textSize = 22f
-        textAlign = Paint.Align.CENTER
-        isAntiAlias = true
-    }
+    fun draw(scope: DrawScope, state: GameState, scale: Float, ox: Float, oy: Float) {
+        scope.drawRect(Color.Black, Offset.Zero, scope.size)
 
-    private val yellowPaint = Paint().apply {
-        color = 0xFFFFFF00.toInt()
-        typeface = Typeface.SERIF
-        textSize = 24f
-        textAlign = Paint.Align.CENTER
-        isAntiAlias = true
-    }
-
-    private val redPaint = Paint().apply {
-        color = 0xFFAA0000.toInt()
-        typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
-        textSize = 30f
-        textAlign = Paint.Align.CENTER
-        isAntiAlias = true
-    }
-
-    private val bluePaint = Paint().apply {
-        color = 0xFF0000AA.toInt()
-        typeface = Typeface.SERIF
-        textSize = 22f
-        textAlign = Paint.Align.CENTER
-        isAntiAlias = true
-    }
-
-    private val creditsPaint = Paint().apply {
-        color = 0xFFFFFFFF.toInt()
-        typeface = Typeface.SANS_SERIF
-        textSize = 14f
-        textAlign = Paint.Align.CENTER
-        isAntiAlias = true
-    }
-
-    private val hintPaint = Paint().apply {
-        color = 0xFF888888.toInt()
-        typeface = Typeface.SANS_SERIF
-        textSize = 12f
-        textAlign = Paint.Align.CENTER
-        isAntiAlias = true
-    }
-
-    private val shotPaint = Paint().apply {
-        color = 0xFFAA0000.toInt()
-        style = Paint.Style.FILL
-        isAntiAlias = true
-    }
-
-    fun draw(nc: android.graphics.Canvas, gs: GameState) {
-        nc.drawColor(0xFF000000.toInt())
-
-        nc.drawText("SOUTH AFRICAN", 320f, 75f, greenPaint)
-        nc.drawText("NATIONAL", 320f, 110f, yellowPaint)
-        nc.drawText("BISLEY SHOOTING 1995", 320f, 160f, redPaint)
-        nc.drawText("(0.22\" CALIBRE)", 320f, 195f, bluePaint)
-
-        // Three demo targets
-        for (tx in intArrayOf(170, 320, 470)) {
-            ScorecardRenderer.drawTarget(nc, tx.toFloat(), 275f)
+        // Demo targets
+        for (x in GameConstants.DEMO_TARGET_X) {
+            val cx = x * scale + ox
+            val cy = GameConstants.DEMO_TARGET_Y * scale + oy
+            val r = GameConstants.TARGET_RADIUS * scale
+            scope.drawCircle(olive, r, Offset(cx, cy))
+            for (ring in GameConstants.TARGET_RINGS) {
+                scope.drawCircle(Color.Black, ring * scale, Offset(cx, cy), style = Stroke(1f * scale))
+            }
         }
 
         // Demo shots
-        if (gs.introStep >= 1) nc.drawCircle(340f, 255f, 5f, shotPaint)
-        if (gs.introStep >= 2) nc.drawCircle(320f, 260f, 5f, shotPaint)
-        if (gs.introStep >= 3) nc.drawCircle(320f, 275f, 5f, shotPaint)
+        for (shot in state.demoShots) {
+            scope.drawCircle(
+                shotColor, GameConstants.SHOT_MARK_RADIUS * scale,
+                Offset(shot.x * scale + ox, shot.y * scale + oy)
+            )
+        }
 
-        nc.drawText("PROGRAMMING - NICO GERBER", 320f, 420f, creditsPaint)
-        nc.drawText("Press [6] for Help  |  Press any key to start", 320f, 450f, hintPaint)
+        // Text
+        scope.drawIntoCanvas { canvas ->
+            val nc = canvas.nativeCanvas
+
+            fun textPaint(colorInt: Int, size: Float, tf: Typeface, bold: Boolean = false): Paint {
+                return Paint().apply {
+                    color = colorInt
+                    textSize = size * scale
+                    typeface = if (bold) Typeface.create(tf, Typeface.BOLD) else tf
+                    textAlign = Paint.Align.CENTER
+                    isAntiAlias = true
+                }
+            }
+
+            val centerX = 320f * scale + ox
+
+            nc.drawText("SOUTH AFRICAN", centerX, 75f * scale + oy,
+                textPaint(android.graphics.Color.rgb(0, 170, 0), 22f, Typeface.SERIF))
+            nc.drawText("NATIONAL", centerX, 110f * scale + oy,
+                textPaint(android.graphics.Color.rgb(255, 255, 0), 24f, Typeface.SERIF))
+            nc.drawText("BISLEY SHOOTING 1995", centerX, 160f * scale + oy,
+                textPaint(android.graphics.Color.rgb(170, 0, 0), 30f, Typeface.SERIF, bold = true))
+            nc.drawText("(0.22\" CALIBRE)", centerX, 195f * scale + oy,
+                textPaint(android.graphics.Color.rgb(0, 0, 170), 22f, Typeface.SERIF))
+            nc.drawText("Press [6] for Help | Press any key to start", centerX, 450f * scale + oy,
+                textPaint(android.graphics.Color.rgb(136, 136, 136), 12f, Typeface.SANS_SERIF))
+        }
     }
 }

@@ -1,226 +1,314 @@
 package za.co.target12.ui
 
-import android.view.MotionEvent
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.input.pointer.pointerInteropFilter
-import androidx.compose.ui.platform.LocalDensity
-import za.co.target12.GameConstants.CANVAS_H
-import za.co.target12.GameConstants.CANVAS_W
-import za.co.target12.GameScreen as GS
-import za.co.target12.GameState
-import za.co.target12.ui.rendering.CrosshairRenderer
-import za.co.target12.ui.rendering.HelpRenderer
-import za.co.target12.ui.rendering.IntroRenderer
-import za.co.target12.ui.rendering.MuzzleFlashRenderer
-import za.co.target12.ui.rendering.ResultsRenderer
-import za.co.target12.ui.rendering.ScorecardOverlayRenderer
-import za.co.target12.ui.rendering.ScorecardRenderer
-import za.co.target12.ui.rendering.TouchControlsRenderer
-import za.co.target12.ui.rendering.computeScale
+import androidx.compose.ui.input.pointer.PointerId
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
+import kotlinx.coroutines.android.awaitFrame
+import za.co.target12.*
+import za.co.target12.audio.GameAudio
+import za.co.target12.input.TouchInputState
+import za.co.target12.physics.BreathingPhysics
+import za.co.target12.physics.DriftPhysics
+import za.co.target12.physics.HeartbeatPhysics
+import za.co.target12.scoring.ScoringEngine
+import za.co.target12.ui.rendering.*
+import kotlin.math.sqrt
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun GameScreen(gs: GameState) {
-    // Game loop
+fun GameScreen() {
+    val state = remember { GameState() }
+    val touchState = remember { TouchInputState() }
+    var screenSize by remember { mutableStateOf(IntSize(1, 1)) }
+    var frameCount by remember { mutableIntStateOf(0) }
+
+    val scaleInfo = remember(screenSize) {
+        CanvasScaler.computeScale(screenSize.width.toFloat(), screenSize.height.toFloat())
+    }
+
+    // Intro timer
+    LaunchedEffect(state.phase) {
+        if (state.phase == GamePhase.INTRO) {
+            state.introStartTime = System.currentTimeMillis()
+            state.demoShotsFired = 0
+            state.demoShots.clear()
+        }
+    }
+
+    // Main game loop
     LaunchedEffect(Unit) {
-        var lastFrameNanos = 0L
+        state.lastFrameTime = System.nanoTime()
         while (true) {
-            val frameTimeNanos = withFrameNanos { it }
-            if (lastFrameNanos == 0L) {
-                lastFrameNanos = frameTimeNanos
-                continue
-            }
-            val dtMs = (frameTimeNanos - lastFrameNanos) / 1_000_000f
-            lastFrameNanos = frameTimeNanos
-            val now = System.currentTimeMillis()
-            gs.update(dtMs.coerceAtMost(50f), now)
-        }
-    }
+            awaitFrame()
+            val now = System.nanoTime()
+            val dt = (now - state.lastFrameTime) / 1_000_000f
+            state.lastFrameTime = now
+            val currentTimeMs = System.currentTimeMillis()
 
-    // Back button handling
-    BackHandler {
-        val now = System.currentTimeMillis()
-        when (gs.screen) {
-            GS.SHOOTING -> gs.exitToIntro(now)
-            GS.HELP -> gs.screen = GS.SHOOTING
-            GS.RESULTS -> gs.exitToIntro(now)
-            GS.SCORECARD -> gs.screen = GS.RESULTS
-            GS.INPUT_NAME, GS.INPUT_TEAM, GS.INPUT_COMP -> gs.screen = GS.SHOOTING
-            GS.INTRO -> {}
-        }
-    }
-
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .pointerInteropFilter { event ->
-                handleTouchEvent(event, gs)
-                true
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        val density = LocalDensity.current
-        val screenWidthPx = with(density) { maxWidth.toPx() }
-        val screenHeightPx = with(density) { maxHeight.toPx() }
-        val scaleInfo = computeScale(screenWidthPx, screenHeightPx)
-
-        val canvasWidthDp = with(density) { (CANVAS_W * scaleInfo.scale).toDp() }
-        val canvasHeightDp = with(density) { (CANVAS_H * scaleInfo.scale).toDp() }
-
-        // Update touch layout with margin info
-        gs.touch.updateLayout(
-            scaleMarginLeft = scaleInfo.offsetX,
-            scaleMarginRight = scaleInfo.offsetX + CANVAS_W * scaleInfo.scale,
-            scaleMarginWidth = scaleInfo.marginLeft,
-            scaleScreenHeight = screenHeightPx,
-            narrow = scaleInfo.isNarrowMargin
-        )
-        // Store scaleInfo for touch handler
-        gs.currentScaleInfo = scaleInfo
-
-        // Read frame counter to trigger recomposition
-        val frame = gs.frameCounter.longValue
-
-        // Game canvas (centered, 4:3)
-        Box(
-            modifier = Modifier
-                .width(canvasWidthDp)
-                .height(canvasHeightDp)
-        ) {
-            Canvas(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                @Suppress("UNUSED_EXPRESSION")
-                frame
-
-                val nc = drawContext.canvas.nativeCanvas
-                nc.save()
-                nc.scale(scaleInfo.scale, scaleInfo.scale)
-
-                when (gs.screen) {
-                    GS.INTRO -> IntroRenderer.draw(nc, gs)
-
-                    GS.SHOOTING, GS.INPUT_NAME, GS.INPUT_TEAM, GS.INPUT_COMP -> {
-                        ScorecardRenderer.draw(this, gs)
-                        CrosshairRenderer.draw(nc, gs.sightX, gs.sightY)
-                        MuzzleFlashRenderer.draw(nc, gs.flashX, gs.flashY, gs.flashAlpha, CANVAS_W, CANVAS_H)
+            when (state.phase) {
+                GamePhase.INTRO -> {
+                    val elapsed = currentTimeMs - state.introStartTime
+                    for (i in GameConstants.DEMO_SHOT_TIMES.indices) {
+                        if (state.demoShotsFired <= i && elapsed >= GameConstants.DEMO_SHOT_TIMES[i]) {
+                            state.demoShots.add(Shot(GameConstants.DEMO_SHOT_X[i], GameConstants.DEMO_SHOT_Y[i]))
+                            state.demoShotsFired = i + 1
+                            GameAudio.playFireSound()
+                        }
                     }
-
-                    GS.HELP -> {
-                        ScorecardRenderer.draw(this, gs)
-                        CrosshairRenderer.draw(nc, gs.sightX, gs.sightY)
-                        HelpRenderer.draw(nc)
-                    }
-
-                    GS.RESULTS -> {
-                        ScorecardRenderer.draw(this, gs)
-                        ResultsRenderer.draw(nc, gs)
-                    }
-
-                    GS.SCORECARD -> {
-                        ScorecardRenderer.draw(this, gs)
-                        ScorecardOverlayRenderer.draw(nc, gs.scorecardCountdown)
+                    if (elapsed >= GameConstants.INTRO_ADVANCE_MS) {
+                        state.resetGame()
                     }
                 }
 
-                nc.restore()
+                GamePhase.SHOOTING -> {
+                    // Joystick movement
+                    if (touchState.joystickActive) {
+                        state.cx += (touchState.joystickDx / GameConstants.JOYSTICK_RADIUS) * GameConstants.JOYSTICK_MAX_SPEED
+                        state.cy += (touchState.joystickDy / GameConstants.JOYSTICK_RADIUS) * GameConstants.JOYSTICK_MAX_SPEED
+                        clampCenter(state)
+                    }
+
+                    // Pending fire from touch
+                    if (touchState.firePending) {
+                        touchState.firePending = false
+                        fireShot(state, currentTimeMs)
+                    }
+
+                    // Breath hold from touch
+                    if (touchState.breathPressed && !state.breathHolding) {
+                        BreathingPhysics.startHold(state, currentTimeMs)
+                    } else if (!touchState.breathPressed && state.breathHolding) {
+                        BreathingPhysics.releaseHold(state, currentTimeMs)
+                    }
+
+                    // Physics
+                    HeartbeatPhysics.update(state, dt)
+                    BreathingPhysics.update(state, dt, currentTimeMs)
+                    DriftPhysics.update(state)
+
+                    // Flash decay
+                    if (state.flashAlpha > 0f) {
+                        state.flashAlpha -= dt / 100f
+                        if (state.flashAlpha < 0f) state.flashAlpha = 0f
+                    }
+                }
+
+                GamePhase.SCORECARD -> {
+                    if (currentTimeMs - state.scorecardLastTick >= 1000L) {
+                        state.scorecardCountdown--
+                        state.scorecardLastTick = currentTimeMs
+                        if (state.scorecardCountdown < 0) {
+                            state.phase = GamePhase.RESULTS
+                        }
+                    }
+                }
+
+                GamePhase.INPUT_NAME, GamePhase.INPUT_TEAM, GamePhase.INPUT_COMP -> {
+                    // Drift continues during input
+                    HeartbeatPhysics.update(state, dt)
+                    BreathingPhysics.update(state, dt, currentTimeMs)
+                    DriftPhysics.update(state)
+                }
+
+                else -> { /* HELP, RESULTS: no physics */ }
             }
 
-            // Input dialog overlays (rendered as Compose, on top of Canvas)
-            when (gs.screen) {
-                GS.INPUT_NAME -> InputDialog(
-                    label = "ENTER YOUR NAME",
-                    maxLength = 15,
-                    onConfirm = { gs.naam = it; gs.screen = GS.SHOOTING },
-                    onCancel = { gs.screen = GS.SHOOTING },
-                )
-                GS.INPUT_TEAM -> InputDialog(
-                    label = "ENTER YOUR TEAM",
-                    maxLength = 6,
-                    onConfirm = { gs.span = it; gs.screen = GS.SHOOTING },
-                    onCancel = { gs.screen = GS.SHOOTING },
-                )
-                GS.INPUT_COMP -> InputDialog(
-                    label = "ENTER THE COMPETITION",
-                    maxLength = 11,
-                    onConfirm = { gs.komp = it; gs.screen = GS.SHOOTING },
-                    onCancel = { gs.screen = GS.SHOOTING },
-                )
-                else -> {}
+            frameCount++
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .onSizeChanged { screenSize = it }
+    ) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                // Single unified pointer handler — routes by zone
+                .pointerInput(state.phase) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val currentTimeMs = System.currentTimeMillis()
+
+                            for (change in event.changes) {
+                                val x = change.position.x
+                                val y = change.position.y
+                                val id = change.id.value
+
+                                when (state.phase) {
+                                    GamePhase.SHOOTING -> {
+                                        if (change.pressed) {
+                                            if (scaleInfo.isLeftMargin(x)) {
+                                                // Left margin: upper = breath, lower = joystick
+                                                val screenH = scaleInfo.scaledHeight + scaleInfo.offsetY * 2f
+                                                if (y < screenH * 0.5f) {
+                                                    // Breath hold
+                                                    if (!touchState.breathPressed) {
+                                                        touchState.breathPressed = true
+                                                        touchState.breathPointerId = id
+                                                    }
+                                                } else {
+                                                    // Joystick
+                                                    if (!touchState.joystickActive) {
+                                                        touchState.joystickActive = true
+                                                        touchState.joystickPointerId = id
+                                                        touchState.joystickBaseX = x
+                                                        touchState.joystickBaseY = y
+                                                    }
+                                                    if (touchState.joystickPointerId == id) {
+                                                        touchState.joystickDx = x - touchState.joystickBaseX
+                                                        touchState.joystickDy = y - touchState.joystickBaseY
+                                                        val dist = sqrt(
+                                                            touchState.joystickDx * touchState.joystickDx +
+                                                            touchState.joystickDy * touchState.joystickDy
+                                                        )
+                                                        if (dist > GameConstants.JOYSTICK_RADIUS) {
+                                                            val s = GameConstants.JOYSTICK_RADIUS / dist
+                                                            touchState.joystickDx *= s
+                                                            touchState.joystickDy *= s
+                                                        }
+                                                    }
+                                                }
+                                            } else if (scaleInfo.isRightMargin(x)) {
+                                                // Fire button
+                                                if (!touchState.firePressed) {
+                                                    touchState.firePressed = true
+                                                    touchState.firePointerId = id
+                                                    touchState.firePending = true
+                                                }
+                                            } else {
+                                                // Canvas area — fire shot on initial press
+                                                if (change.previousPressed != change.pressed && change.pressed) {
+                                                    fireShot(state, currentTimeMs)
+                                                }
+                                            }
+                                        } else {
+                                            // Released
+                                            if (id == touchState.joystickPointerId) touchState.resetJoystick()
+                                            if (id == touchState.firePointerId) touchState.releaseFire()
+                                            if (id == touchState.breathPointerId) {
+                                                touchState.releaseBreath()
+                                                if (state.breathHolding) {
+                                                    BreathingPhysics.releaseHold(state, currentTimeMs)
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    GamePhase.INTRO -> {
+                                        // Tap on canvas advances to shooting
+                                        if (change.pressed && !change.previousPressed) {
+                                            state.resetGame()
+                                        }
+                                    }
+
+                                    GamePhase.HELP -> {
+                                        if (change.pressed && !change.previousPressed) {
+                                            state.phase = GamePhase.SHOOTING
+                                        }
+                                    }
+
+                                    GamePhase.SCORECARD -> {
+                                        if (change.pressed && !change.previousPressed) {
+                                            state.phase = GamePhase.RESULTS
+                                        }
+                                    }
+
+                                    GamePhase.RESULTS -> {
+                                        if (change.pressed && !change.previousPressed && scaleInfo.isOnCanvas(x)) {
+                                            val vy = scaleInfo.toCanvasY(y)
+                                            when {
+                                                vy in 315f..345f -> {
+                                                    state.scorecardCountdown = GameConstants.SCORECARD_COUNTDOWN
+                                                    state.scorecardLastTick = System.currentTimeMillis()
+                                                    state.phase = GamePhase.SCORECARD
+                                                }
+                                                vy in 340f..370f -> state.resetGame()
+                                                vy in 365f..395f -> state.phase = GamePhase.INTRO
+                                            }
+                                        }
+                                    }
+
+                                    else -> {}
+                                }
+                            }
+                        }
+                    }
+                }
+        ) {
+            frameCount.let { _ ->
+                val scale = scaleInfo.scale
+                val ox = scaleInfo.offsetX
+                val oy = scaleInfo.offsetY
+
+                when (state.phase) {
+                    GamePhase.INTRO -> {
+                        IntroRenderer.draw(this, state, scale, ox, oy)
+                    }
+
+                    GamePhase.SHOOTING, GamePhase.INPUT_NAME, GamePhase.INPUT_TEAM, GamePhase.INPUT_COMP -> {
+                        ScorecardRenderer.draw(this, state, scale, ox, oy)
+                        CrosshairRenderer.draw(this, state, scale, ox, oy)
+                        MuzzleFlashRenderer.draw(this, state, scale, ox, oy)
+                        EcgChartRenderer.draw(this, state, scale, ox, oy)
+                        if (state.phase == GamePhase.SHOOTING) {
+                            TouchControlsRenderer.draw(this, touchState, scaleInfo)
+                        }
+                    }
+
+                    GamePhase.HELP -> {
+                        ScorecardRenderer.draw(this, state, scale, ox, oy)
+                        CrosshairRenderer.draw(this, state, scale, ox, oy)
+                        HelpRenderer.draw(this, scale, ox, oy)
+                    }
+
+                    GamePhase.RESULTS -> {
+                        ScorecardRenderer.draw(this, state, scale, ox, oy)
+                        ResultsRenderer.draw(this, state, scale, ox, oy)
+                    }
+
+                    GamePhase.SCORECARD -> {
+                        ScorecardRenderer.draw(this, state, scale, ox, oy)
+                        ScorecardOverlayRenderer.draw(this, state, scale, ox, oy)
+                    }
+                }
             }
         }
 
-        // Full-screen overlay for touch controls (drawn in screen coordinates)
-        if (gs.screen == GS.SHOOTING || gs.screen == GS.INPUT_NAME ||
-            gs.screen == GS.INPUT_TEAM || gs.screen == GS.INPUT_COMP) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                @Suppress("UNUSED_EXPRESSION")
-                frame
-                TouchControlsRenderer.draw(drawContext.canvas.nativeCanvas, gs.touch)
-            }
+        // Input dialog overlay
+        if (state.phase in listOf(GamePhase.INPUT_NAME, GamePhase.INPUT_TEAM, GamePhase.INPUT_COMP)) {
+            InputDialog(state = state, onDone = { state.phase = GamePhase.SHOOTING })
         }
     }
 }
 
-private fun handleTouchEvent(event: MotionEvent, gs: GameState) {
-    val scaleInfo = gs.currentScaleInfo ?: return
-    val actionIndex = event.actionIndex
-    val pointerId = event.getPointerId(actionIndex)
-    // Screen coordinates for margin-based touch controls
-    val screenX = event.getX(actionIndex)
-    val screenY = event.getY(actionIndex)
-    // Canvas coordinates for game interaction (results tap, etc.)
-    val canvasX = (screenX - scaleInfo.offsetX) / scaleInfo.scale
-    val canvasY = (screenY - scaleInfo.offsetY) / scaleInfo.scale
-
-    when (event.actionMasked) {
-        MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
-            when (gs.screen) {
-                GS.SHOOTING -> gs.touch.onPointerDown(pointerId, screenX, screenY)
-                GS.HELP -> gs.screen = GS.SHOOTING
-                GS.SCORECARD -> gs.screen = GS.RESULTS
-                GS.RESULTS -> handleResultsTap(gs, canvasX, canvasY)
-                GS.INTRO -> {}
-                else -> {}
-            }
-        }
-        MotionEvent.ACTION_MOVE -> {
-            for (i in 0 until event.pointerCount) {
-                val id = event.getPointerId(i)
-                val x = event.getX(i)
-                val y = event.getY(i)
-                gs.touch.onPointerMove(id, x, y)
-            }
-        }
-        MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> {
-            gs.touch.onPointerUp(pointerId)
-        }
-    }
+private fun clampCenter(state: GameState) {
+    var clamped = false
+    if (state.cx >= GameConstants.RG) { state.cx = GameConstants.RG - 1f; clamped = true }
+    if (state.cx <= GameConstants.LG) { state.cx = GameConstants.LG + 1f; clamped = true }
+    if (state.cy >= GameConstants.OG) { state.cy = GameConstants.OG - 1f; clamped = true }
+    if (state.cy <= GameConstants.BG) { state.cy = GameConstants.BG + 1f; clamped = true }
+    if (clamped) GameAudio.playBoundarySound()
 }
 
-private fun handleResultsTap(gs: GameState, canvasX: Float, canvasY: Float) {
-    val now = System.currentTimeMillis()
-    if (canvasX in 130f..510f) {
-        when {
-            canvasY in 315f..345f -> gs.viewScorecard(now)
-            canvasY in 340f..370f -> gs.shootAgain()
-            canvasY in 365f..395f -> gs.exitToIntro(now)
-        }
+private fun fireShot(state: GameState, currentTimeMs: Long) {
+    if (state.phase != GamePhase.SHOOTING) return
+    state.flashX = state.sightX
+    state.flashY = state.sightY
+    state.flashAlpha = 1.0f
+    GameAudio.playFireSound()
+    if (ScoringEngine.processShot(state)) {
+        state.phase = GamePhase.RESULTS
     }
 }

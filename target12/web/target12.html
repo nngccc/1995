@@ -2,1497 +2,1258 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>S.A. National Bisley Shooting</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='32' fill='%23808000'/%3E%3Ccircle cx='0.5' cy='9.5' r='6.75' fill='%23000'/%3E%3Ccircle cx='18.5' cy='9.5' r='6.75' fill='%23000'/%3E%3Ccircle cx='36.5' cy='9.5' r='6.75' fill='%23000'/%3E%3Ccircle cx='54.5' cy='9.5' r='6.75' fill='%23000'/%3E%3Ccircle cx='9.5' cy='32' r='6.75' fill='%23000'/%3E%3Ccircle cx='32' cy='32' r='6.75' fill='%23000'/%3E%3Ccircle cx='54.5' cy='32' r='6.75' fill='%23000'/%3E%3Ccircle cx='0.5' cy='54.5' r='6.75' fill='%23000'/%3E%3Ccircle cx='18.5' cy='54.5' r='6.75' fill='%23000'/%3E%3Ccircle cx='36.5' cy='54.5' r='6.75' fill='%23000'/%3E%3Ccircle cx='54.5' cy='54.5' r='6.75' fill='%23000'/%3E%3Ccircle cx='32' cy='32' r='22.5' fill='none' stroke='%23fff' stroke-width='3.375'/%3E%3Cline x1='32' y1='0.5' x2='32' y2='18.5' stroke='%23fff' stroke-width='3.375'/%3E%3Cline x1='32' y1='45.5' x2='32' y2='63.5' stroke='%23fff' stroke-width='3.375'/%3E%3Cline x1='0.5' y1='32' x2='18.5' y2='32' stroke='%23fff' stroke-width='3.375'/%3E%3Cline x1='45.5' y1='32' x2='63.5' y2='32' stroke='%23fff' stroke-width='3.375'/%3E%3Ccircle cx='32' cy='32' r='3.375' fill='%23fff'/%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Target12 — SA National Bisley Shooting 1995</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='8' fill='%23808000'/><circle cx='12' cy='12' r='3' fill='%23000'/><circle cx='28' cy='12' r='3' fill='%23000'/><circle cx='44' cy='12' r='3' fill='%23000'/><circle cx='56' cy='12' r='3' fill='%23000'/><circle cx='20' cy='32' r='3' fill='%23000'/><circle cx='36' cy='32' r='3' fill='%23000'/><circle cx='52' cy='32' r='3' fill='%23000'/><circle cx='12' cy='52' r='3' fill='%23000'/><circle cx='28' cy='52' r='3' fill='%23000'/><circle cx='44' cy='52' r='3' fill='%23000'/><circle cx='56' cy='52' r='3' fill='%23000'/><circle cx='32' cy='32' r='12' fill='none' stroke='%23fff' stroke-width='1.5'/><line x1='18' y1='32' x2='26' y2='32' stroke='%23fff' stroke-width='1.5'/><line x1='38' y1='32' x2='46' y2='32' stroke='%23fff' stroke-width='1.5'/><line x1='32' y1='18' x2='32' y2='26' stroke='%23fff' stroke-width='1.5'/><line x1='32' y1='38' x2='32' y2='46' stroke='%23fff' stroke-width='1.5'/><circle cx='32' cy='32' r='2' fill='%23fff'/></svg>">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  background: #000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  font-family: monospace;
-  color: #fff;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
+html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
 #game-container {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100vw;
-  height: 100vh;
+    position: relative;
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
 }
-canvas {
-  display: block;
-  border: 1px solid #333;
-  cursor: none;
-  touch-action: none;
+#gameCanvas {
+    display: block;
+    image-rendering: pixelated;
+    border: 1px solid #333;
 }
-/* Touch control overlays in margins */
-.touch-zone {
-  display: none;
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.touch-zone.touch-active { display: block; }
-#touch-left { left: 0; }
-#touch-right { right: 0; }
-.touch-btn {
-  position: absolute;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  font-family: monospace;
-  font-weight: bold;
-  color: #fff;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-#touch-fire {
-  width: 312px; height: 312px;
-  background: rgba(170, 0, 0, 0.40);
-  border: 6px solid rgba(255, 255, 255, 0.55);
-  font-size: 39px;
-}
-#touch-fire.pressed {
-  background: rgba(255, 85, 85, 0.75);
-  border-color: rgba(255, 255, 255, 0.90);
-}
-#touch-breath {
-  width: 264px; height: 264px;
-  background: rgba(0, 102, 0, 0.40);
-  border: 6px solid rgba(0, 255, 0, 0.55);
-  font-size: 33px;
-  line-height: 1.3;
-}
-#touch-breath.pressed {
-  background: rgba(0, 255, 0, 0.75);
-  border-color: rgba(0, 255, 0, 0.90);
-}
-.joystick-hint {
-  position: absolute;
-  width: 276px; height: 276px;
-  background: rgba(0, 0, 170, 0.40);
-  border: 6px solid rgba(100, 100, 255, 0.55);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: monospace;
-  font-weight: bold;
-  font-size: 30px;
-  color: rgba(255, 255, 255, 0.85);
-  pointer-events: none;
-}
-.joystick-ring {
-  position: absolute;
-  width: 360px; height: 360px;
-  border: 6px solid rgba(255, 255, 255, 0.35);
-  border-radius: 50%;
-  pointer-events: none;
-  display: none;
-}
-.joystick-thumb {
-  position: absolute;
-  width: 96px; height: 96px;
-  background: rgba(255, 255, 255, 0.60);
-  border-radius: 50%;
-  pointer-events: none;
-  display: none;
-}
-/* Narrow viewport fallback */
-.narrow-margins .touch-zone {
-  background: rgba(0, 0, 0, 0.5);
-}
-#game-container.fullscreen {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100vw;
-  height: 100vh;
-}
-#game-container.fullscreen canvas {
-  border: none;
-}
+#game-container.fullscreen #gameCanvas { border: none; }
+
+/* Input overlays */
 .input-overlay {
-  display: none;
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 80, 0.95);
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 80, 0.95);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
 }
 .input-overlay.active { display: flex; }
 .input-overlay label {
-  font-size: 18px;
-  margin-bottom: 16px;
-  color: #fff;
-  font-family: serif;
+    font: 18px serif; color: #fff; margin-bottom: 16px;
 }
 .input-overlay input {
-  font-size: 18px;
-  padding: 8px 16px;
-  background: #060;
-  color: #fff;
-  border: 2px solid #0a0;
-  outline: none;
-  font-family: monospace;
-  text-align: center;
-  width: 240px;
+    font: 18px monospace; width: 240px;
+    padding: 8px 16px; background: #060;
+    border: 2px solid #0a0; color: #fff; text-align: center;
+    outline: none;
 }
 .input-overlay input:focus { border-color: #0f0; }
 .input-overlay .hint {
-  font-size: 12px;
-  color: #888;
-  margin-top: 8px;
+    font-size: 12px; color: #888; margin-top: 8px;
+}
+
+/* Touch controls */
+.touch-control {
+    position: absolute;
+    display: none;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    z-index: 50;
+}
+.touch-active .touch-control { display: flex; }
+.touch-control canvas {
+    touch-action: none;
+}
+
+#left-margin-zone {
+    top: 0; left: 0; height: 100%;
+    flex-direction: column; align-items: center; justify-content: center;
+}
+#right-margin-zone {
+    top: 0; right: 0; height: 100%;
+    flex-direction: column; align-items: center; justify-content: center;
+}
+
+#game-container.narrow-margins .touch-control {
+    background: rgba(0,0,0,0.5);
 }
 </style>
 </head>
 <body>
 <div id="game-container">
-  <canvas id="c" width="640" height="480"></canvas>
-  <!-- Touch controls in viewport margins -->
-  <div id="touch-left" class="touch-zone">
-    <div id="touch-breath" class="touch-btn"><span>HOLD</span><span>BREATH</span></div>
-    <div class="joystick-hint" id="joystick-hint">MOVE</div>
-    <div class="joystick-ring" id="joystick-ring"></div>
-    <div class="joystick-thumb" id="joystick-thumb"></div>
-  </div>
-  <div id="touch-right" class="touch-zone">
-    <div id="touch-fire" class="touch-btn">FIRE</div>
-  </div>
-  <div class="input-overlay" id="overlay-name">
-    <label>ENTER YOUR NAME</label>
-    <input type="text" id="input-name" maxlength="15" placeholder="Name">
-    <div class="hint">Press Enter to confirm</div>
-  </div>
-  <div class="input-overlay" id="overlay-team">
-    <label>ENTER YOUR TEAM</label>
-    <input type="text" id="input-team" maxlength="6" placeholder="Team">
-    <div class="hint">Press Enter to confirm</div>
-  </div>
-  <div class="input-overlay" id="overlay-comp">
-    <label>ENTER THE COMPETITION</label>
-    <input type="text" id="input-comp" maxlength="11" placeholder="Competition">
-    <div class="hint">Press Enter to confirm</div>
-  </div>
+    <canvas id="gameCanvas" width="640" height="480"></canvas>
+    <div id="left-margin-zone" class="touch-control"></div>
+    <div id="right-margin-zone" class="touch-control"></div>
+    <div id="input-overlay" class="input-overlay">
+        <label id="input-label"></label>
+        <input id="input-field" type="text" maxlength="15" autocomplete="off">
+        <div class="hint">Press Enter to confirm</div>
+    </div>
 </div>
 
 <script>
-// ============================================================
-// S.A. NATIONAL BISLEY SHOOTING (0.22" CALIBRE) - Web Version
-// Original: Nico Gerber, 1996 (Turbo Pascal 7.0)
-// Web port: 2026
-// ============================================================
+'use strict';
 
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
-const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+// ===== CONSTANTS =====
+const W = 640, H = 480;
+const BG = 55, OG = 430, LG = 50, RG = 582;
+const DRIFT_ACCEL = 0.06;
+const HEART_AMPLITUDE = 3.5;
+const BREATH_PERIOD = 5000;
+const BREATH_AMPLITUDE_Y = 25.0;
+const BREATH_AMPLITUDE_X = 4.0;
+const BREATH_HOLD_MAX = 4000;
+const BREATH_RECOVERY_TIME = 2000;
+const JOYSTICK_RADIUS = 180;
+const JOYSTICK_MAX_SPEED = 3;
 
-// --- Constants (from Pascal source) ---
-const RONTES = 13;        // Total shots
-const OG = 430;           // Bottom boundary
-const BG = 55;            // Top boundary
-const LG = 50;            // Left boundary
-const RG = 582;           // Right boundary
-const GR = 55;            // Crosshair circle radius
-const FL = 5;             // Flinch/drift amount
-const XD = 10;            // Arrow key move X
-const YW_MOVE = 10;       // Arrow key move Y
-const XJ = 50;            // WASD jump X
-const YJ = 50;            // WASD jump Y
-const SK = 5;             // Shot dot radius
-
-// Target positions (10 scoring targets + 1 practice)
-const TARGETS = [
-  { x: 90,  y: 80,  label: '1' },
-  { x: 240, y: 80,  label: '2' },
-  { x: 390, y: 80,  label: '3' },
-  { x: 540, y: 80,  label: '4' },
-  { x: 170, y: 220, label: '5' },
-  // index 5 is practice target (SLEGS PROEFSKOTE)
-  { x: 320, y: 220, label: '' },
-  { x: 470, y: 220, label: '6' },
-  { x: 90,  y: 350, label: '7' },
-  { x: 240, y: 350, label: '8' },
-  { x: 390, y: 350, label: '9' },
-  { x: 540, y: 350, label: '10' },
+const TARGET_POSITIONS = [
+    { x: 90, y: 80 },   { x: 240, y: 80 },  { x: 390, y: 80 },  { x: 540, y: 80 },
+    { x: 170, y: 220 }, { x: 320, y: 220 },  { x: 470, y: 220 },
+    { x: 90, y: 350 },  { x: 240, y: 350 },  { x: 390, y: 350 }, { x: 540, y: 350 }
 ];
+const TARGET_LABELS = ["1","2","3","4","5","","6","7","8","9","10"];
 
-// Scoring target indices (0-based, excluding practice target at index 5)
-const SCORING_TARGETS = [0,1,2,3,4,6,7,8,9,10];
+// ===== DOM REFS =====
+const container = document.getElementById('game-container');
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const inputOverlay = document.getElementById('input-overlay');
+const inputLabel = document.getElementById('input-label');
+const inputField = document.getElementById('input-field');
+const leftZone = document.getElementById('left-margin-zone');
+const rightZone = document.getElementById('right-margin-zone');
 
-// Colors (EGA palette mapped to CSS)
-const COL = {
-  bg: '#000',        // KLEURB = 6 (brown) -> dark for modern look
-  targetFill: '#808000', // KLEURK = 8 -> olive/dark yellow for targets
-  crosshair: '#fff', // KLEURC = 15
-  shot: '#a00',      // KLEURS = 4 (red)
-  text1: '#0a0',     // KLEURX = 2 (green)
-  text2: '#ff0',     // KLEURY = 14 (yellow)
-  ring: '#000',      // Ring color on targets
-};
-
-// --- Game State ---
-let state = 'intro';       // Current game state
-let stateTimer = 0;        // Timer for timed states
-let naam = '';
-let span = '';
-let komp = '';
-let telling = 0;           // Score
-let aantal = 1;            // Current shot number (1-based)
-let cx = 320;              // Aim center X (moved by keys)
-let cy = 220;              // Aim center Y (moved by keys)
-let driftOx = 0;           // Drift offset from center X
-let driftOy = 0;           // Drift offset from center Y
-let skotex = new Array(RONTES + 1).fill(0);
-let skotey = new Array(RONTES + 1).fill(0);
-let keys = {};             // Currently pressed keys
-let lastFrameTime = 0;
-
-// --- Touch state ---
-let cssScale = 1;
-
-// Joystick state (screen pixels, relative to base)
-let joystickActive   = false;
-let joystickBaseX    = 0;
-let joystickBaseY    = 0;
-let joystickDx       = 0;
-let joystickDy       = 0;
-const JOYSTICK_RADIUS    = 180;  // screen px
-const JOYSTICK_MAX_SPEED = 3;   // px/frame at full deflection
-
-// Button state
-let firePressed = false;
-let breathHoldActive = false;
-
-// DOM elements for touch controls
-const touchLeft = document.getElementById('touch-left');
-const touchRight = document.getElementById('touch-right');
-const joystickHint = document.getElementById('joystick-hint');
-const joystickRing = document.getElementById('joystick-ring');
-const joystickThumb = document.getElementById('joystick-thumb');
-const fireBtnEl = document.getElementById('touch-fire');
-const breathBtnEl = document.getElementById('touch-breath');
-
-// Smooth drift state
-let driftVx = 0;          // Current drift velocity X
-let driftVy = 0;          // Current drift velocity Y
-const DRIFT_MAX_SPEED = 0.5;   // Max drift speed (px per frame) — low for prone/sling
-const DRIFT_ACCEL = 0.06;      // How quickly drift direction changes — sling dampens
-
-// Heartbeat pulse effect
-const HEART_AMPLITUDE = 3.5;            // px displacement per pulse — prone transmits more
-let heartPhase = 0;                     // accumulated phase in ms
-let heartBPM = 60;                      // current BPM (dynamic)
-let heartBPMTarget = 60;                // what BPM is trending toward
-
-// ECG chart history buffer — stores waveform values so past beats don't shift when BPM changes
-const ECG_CHART_WIDTH = 200;            // must match drawHeartbeatChart width
-const ECG_CHART_TIMESPAN = 2000;        // 2s visible window
-const ecgHistory = new Float32Array(ECG_CHART_WIDTH); // circular buffer of waveform values
-let ecgHistoryHead = 0;                 // next write position
-let ecgAccumMs = 0;                     // ms accumulated since last ecg sample
-let ecgBeatPhase = 0;                   // 0..1 phase within current beat cycle
-
-// Breathing rhythm
-const BREATH_PERIOD = 5000;          // 5s per breath (12 breaths/min)
-const BREATH_AMPLITUDE_Y = 25.0;    // vertical sway (px) — dominant in prone, forces breath-hold
-const BREATH_AMPLITUDE_X = 4.0;     // horizontal sway (px) — slight lateral diagonal movement
-const BREATH_HOLD_MAX = 4000;       // comfortable hold duration (ms) — prone is stable
-const BREATH_RECOVERY_TIME = 2000;  // recovery after release (ms)
-
-let breathPhase = 0;
-let breathHolding = false;
-let breathHoldStart = 0;
-let breathHoldPhase = 0;            // breath cycle position when hold began (0..1)
-let breathRecovering = false;
-let breathRecoveryStart = 0;
-let breathStress = 0;               // 0..1, ramps up when over-holding
-let breathCurrentDx = 0;            // current frame breathing X displacement
-let breathCurrentDy = 0;            // current frame breathing Y displacement
-let breathHoldStartDx = 0;          // waveform displacement at moment Shift pressed
-let breathHoldStartDy = 0;
-let breathHoldRestDx = 0;           // settle target based on hold timing quality
-let breathHoldRestDy = 0;
-let breathHoldQuality = 0;          // 0..1, how well timed the hold was
-
-// Intro animation state
-let introStep = 0;
-let introTimer = 0;
-
-// Results state
-let scorecardCountdown = 0;
-let scorecardTimer = 0;
-
-// Muzzle flash state
-let flashAlpha = 0;
-let flashX = 0;
-let flashY = 0;
-
-// Audio
+// ===== AUDIO =====
 let audioCtx = null;
 function ensureAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
 }
 
-function playTone(freq, duration) {
-  ensureAudio();
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  osc.frequency.value = freq;
-  gain.gain.value = 0.15;
-  osc.start();
-  osc.stop(audioCtx.currentTime + duration / 1000);
+function playFireSound() {
+    ensureAudio();
+    const now = audioCtx.currentTime;
+    // Crack - white noise burst
+    const bufLen = Math.floor(audioCtx.sampleRate * 0.08);
+    const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1);
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buf;
+    const noiseGain = audioCtx.createGain();
+    noiseGain.gain.setValueAtTime(0.4, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+    noise.connect(noiseGain).connect(audioCtx.destination);
+    noise.start(now); noise.stop(now + 0.08);
+    // Boom - sine sweep
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.linearRampToValueAtTime(50, now + 0.2);
+    const boomGain = audioCtx.createGain();
+    boomGain.gain.setValueAtTime(0.3, now);
+    boomGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    osc.connect(boomGain).connect(audioCtx.destination);
+    osc.start(now); osc.stop(now + 0.2);
 }
 
-function playFire() {
-  ensureAudio();
-  const now = audioCtx.currentTime;
-
-  // Layer 1 — Crack: white noise burst
-  const bufferSize = audioCtx.sampleRate * 0.08; // 80ms
-  const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-  const data = noiseBuffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = Math.random() * 2 - 1;
-  }
-  const noise = audioCtx.createBufferSource();
-  noise.buffer = noiseBuffer;
-  const noiseGain = audioCtx.createGain();
-  noiseGain.gain.setValueAtTime(0.4, now);
-  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-  noise.connect(noiseGain);
-  noiseGain.connect(audioCtx.destination);
-  noise.start(now);
-  noise.stop(now + 0.08);
-
-  // Layer 2 — Boom: sine sweep 150Hz -> 50Hz
-  const osc = audioCtx.createOscillator();
-  osc.frequency.setValueAtTime(150, now);
-  osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
-  const oscGain = audioCtx.createGain();
-  oscGain.gain.setValueAtTime(0.3, now);
-  oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-  osc.connect(oscGain);
-  oscGain.connect(audioCtx.destination);
-  osc.start(now);
-  osc.stop(now + 0.2);
+function playBoundarySound() {
+    ensureAudio();
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine'; osc.frequency.value = 200;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.15, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    osc.connect(g).connect(audioCtx.destination);
+    osc.start(now); osc.stop(now + 0.05);
 }
 
-function playBump() {
-  playTone(50, 30);
+function playBumpSound() {
+    ensureAudio();
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine'; osc.frequency.value = 50;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.15, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+    osc.connect(g).connect(audioCtx.destination);
+    osc.start(now); osc.stop(now + 0.03);
 }
 
-function playBoundary() {
-  playTone(200, 50);
+// ===== GAME STATE =====
+let gameState = 'intro';
+let introStartTime = 0;
+let demoShots = [];
+let demoShotsFired = [false, false, false];
+
+// Player data (persists across restarts)
+let playerName = '';
+let playerTeam = '';
+let playerComp = '';
+let currentInputType = '';
+
+// Shooting state
+let cx = 320, cy = 220;
+let driftOx = 0, driftOy = 0, driftVx = 0, driftVy = 0;
+let breathPhase = 0;
+let breathHolding = false, breathRecovering = false;
+let breathHoldStartTime = 0;
+let breathHoldPhase = 0;
+let breathHoldStartDx = 0, breathHoldStartDy = 0;
+let breathHoldRestDx = 0, breathHoldRestDy = 0;
+let breathHoldQuality = 0;
+let breathStress = 0;
+let breathReleaseTime = 0;
+let breathDx = 0, breathDy = 0;
+let heartBPM = 60, heartBPMTarget = 60;
+let heartPhase = 0;
+let heartDy = 0;
+
+// ECG
+let ecgBuffer = new Float32Array(200);
+let ecgWriteIdx = 0;
+let ecgBeatPhase = 0;
+let ecgLastSampleTime = 0;
+
+// Shots
+let shots = [];
+let scoringShots = 0;
+let totalShots = 0;
+let score = 0;
+
+// Flash
+let flashAlpha = 0;
+let flashX = 0, flashY = 0;
+
+// Results / scorecard
+let scorecardCountdown = 9;
+let scorecardLastTick = 0;
+
+// Scaling
+let cssScale = 1;
+let canvasLeft = 0, canvasTop = 0;
+let marginLeft = 0, marginRight = 0;
+let isFullscreen = false;
+
+// Touch
+let isTouchDevice = false;
+let joystickActive = false;
+let joystickBaseX = 0, joystickBaseY = 0;
+let joystickDx = 0, joystickDy = 0;
+let joystickThumbX = 0, joystickThumbY = 0;
+let breathButtonPressed = false;
+let fireButtonPressed = false;
+
+let lastTime = 0;
+
+// ===== SCALING =====
+function updateCanvasScale() {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const targetAspect = W / H;
+    const viewAspect = vw / vh;
+    let w, h;
+    if (viewAspect > targetAspect) {
+        h = vh; w = h * targetAspect;
+    } else {
+        w = vw; h = w / targetAspect;
+    }
+    cssScale = w / W;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    canvasLeft = (vw - w) / 2;
+    canvasTop = (vh - h) / 2;
+    marginLeft = canvasLeft;
+    marginRight = canvasLeft;
+
+    // Position touch zones
+    const leftW = Math.max(marginLeft, 0);
+    const rightW = Math.max(marginRight, 0);
+
+    if (leftW < 80 || rightW < 80) {
+        container.classList.add('narrow-margins');
+        leftZone.style.left = canvasLeft + 'px';
+        leftZone.style.width = Math.max(100, leftW) + 'px';
+        rightZone.style.right = (vw - canvasLeft - w) + 'px';
+        rightZone.style.width = Math.max(100, rightW) + 'px';
+    } else {
+        container.classList.remove('narrow-margins');
+        leftZone.style.left = '0px';
+        leftZone.style.width = leftW + 'px';
+        rightZone.style.right = '0px';
+        rightZone.style.width = rightW + 'px';
+    }
+    leftZone.style.top = '0px';
+    leftZone.style.height = vh + 'px';
+    rightZone.style.top = '0px';
+    rightZone.style.height = vh + 'px';
 }
 
-// --- Drawing Functions ---
-
-function drawTarget(x, y) {
-  // Filled circle (target body)
-  ctx.fillStyle = COL.targetFill;
-  ctx.beginPath();
-  ctx.arc(x, y, 50, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Rings at radii 5, 15, 25, 35
-  ctx.strokeStyle = COL.ring;
-  ctx.lineWidth = 1;
-  for (const r of [5, 15, 25, 35]) {
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.stroke();
-  }
+function screenToCanvas(sx, sy) {
+    return {
+        x: (sx - canvasLeft) / cssScale,
+        y: (sy - canvasTop) / cssScale
+    };
 }
 
-function drawCrosshair(x, y) {
-  ctx.strokeStyle = COL.crosshair;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(x, y, GR, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // Crosshair lines
-  const len = 10;
-  ctx.beginPath();
-  ctx.moveTo(x - GR - len, y);
-  ctx.lineTo(x - GR + len, y);
-  ctx.moveTo(x + GR - len, y);
-  ctx.lineTo(x + GR + len, y);
-  ctx.moveTo(x, y - GR - len);
-  ctx.lineTo(x, y - GR + len);
-  ctx.moveTo(x, y + GR - len);
-  ctx.lineTo(x, y + GR + len);
-  ctx.stroke();
-
-  // Center dot
-  ctx.fillStyle = COL.crosshair;
-  ctx.beginPath();
-  ctx.arc(x, y, 2, 0, Math.PI * 2);
-  ctx.fill();
+// ===== FULLSCREEN =====
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        container.requestFullscreen().catch(() => {});
+        container.classList.add('fullscreen');
+    } else {
+        document.exitFullscreen().catch(() => {});
+        container.classList.remove('fullscreen');
+    }
 }
+document.addEventListener('fullscreenchange', () => {
+    isFullscreen = !!document.fullscreenElement;
+    if (!isFullscreen) container.classList.remove('fullscreen');
+    setTimeout(updateCanvasScale, 100);
+});
 
-function heartbeatWaveform(t) {
-  // t is 0..1 position within one heartbeat cycle
-  // Returns -1..1 ECG-like waveform
-  if (t < 0.05) return 0;                                          // baseline
-  if (t < 0.08) return 0.15 * Math.sin((t - 0.05) / 0.03 * Math.PI); // P wave
-  if (t < 0.12) return 0;                                          // PR segment
-  if (t < 0.14) return -0.15;                                      // Q dip
-  if (t < 0.18) return Math.sin((t - 0.14) / 0.04 * Math.PI);     // R peak (tall)
-  if (t < 0.21) return -0.25;                                      // S dip
-  if (t < 0.25) return -0.25 * (1 - (t - 0.21) / 0.04);           // return to baseline
-  if (t < 0.35) return 0;                                          // ST segment
-  if (t < 0.45) return 0.2 * Math.sin((t - 0.35) / 0.10 * Math.PI); // T wave
-  return 0;                                                         // baseline
-}
-
+// ===== BREATHING WAVEFORM =====
 function breathingWaveform(t) {
-  // t = 0..1 within one breath cycle
-  // Returns {x, y} displacement
-  // 0.0–0.4: inhale (sight lowers), 0.4–0.5: natural pause (sight at bottom),
-  // 0.5–1.0: exhale (sight rises back to center)
-  let dy, dx;
-  if (t < 0.4) {
-    const e = (1 - Math.cos(t / 0.4 * Math.PI)) / 2;
-    dy = e * BREATH_AMPLITUDE_Y;
-    dx = e * BREATH_AMPLITUDE_X;
-  } else if (t < 0.5) {
-    dy = BREATH_AMPLITUDE_Y;
-    dx = BREATH_AMPLITUDE_X;
-  } else {
-    const e = (1 - Math.cos((t - 0.5) / 0.5 * Math.PI)) / 2;
-    dy = (1 - e) * BREATH_AMPLITUDE_Y;
-    dx = (1 - e) * BREATH_AMPLITUDE_X;
-  }
-  return { x: dx, y: dy };
-}
-
-function drawHeartbeatChart(x, y, w, h) {
-  // Background
-  ctx.fillStyle = '#000';
-  ctx.fillRect(x, y - h / 2, w, h);
-  ctx.strokeStyle = '#300';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(x, y - h / 2, w, h);
-
-  // Draw the scrolling ECG trace from history buffer
-  ctx.strokeStyle = '#f00';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  for (let i = 0; i < w; i++) {
-    // Read from circular buffer: oldest sample first
-    const bufIdx = (ecgHistoryHead + i) % ECG_CHART_WIDTH;
-    const val = ecgHistory[bufIdx];
-    const px = x + i;
-    const py = y - val * (h / 2) * 0.85;
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-  }
-  ctx.stroke();
-}
-
-function drawBreathIndicator(x, y, w, h) {
-  // Background
-  ctx.fillStyle = '#000';
-  ctx.fillRect(x, y - h / 2, w, h);
-  ctx.strokeStyle = '#030';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(x, y - h / 2, w, h);
-
-  // Determine fill level from current breath waveform Y
-  let breathT;
-  if (breathHolding) {
-    breathT = breathHoldPhase;
-  } else {
-    breathT = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
-  }
-  const bw = breathingWaveform(breathT);
-  // Map dy from [0, +BREATH_AMPLITUDE_Y] to fill [0, 1]
-  const fillLevel = Math.max(0, Math.min(1, bw.y / BREATH_AMPLITUDE_Y));
-
-  // Choose color based on state
-  let barColor;
-  if (breathStress > 0.01) {
-    // Interpolate yellow to red based on stress
-    const r = 255;
-    const g = Math.round(255 * (1 - breathStress));
-    barColor = `rgb(${r},${g},0)`;
-  } else if (breathRecovering) {
-    barColor = '#ff0';
-  } else if (breathHolding) {
-    barColor = '#0f0';
-  } else {
-    barColor = '#0a0';
-  }
-
-  // Draw fill bar (bottom-up)
-  const barH = fillLevel * (h - 2);
-  ctx.fillStyle = barColor;
-  ctx.fillRect(x + 1, y + h / 2 - 1 - barH, w - 2, barH);
-
-  // Label when holding
-  if (breathHolding) {
-    ctx.fillStyle = barColor;
-    ctx.font = '7px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('BREATH', x + w / 2, y - h / 2 - 2);
-    ctx.textAlign = 'left';
-  }
-}
-
-function drawShots() {
-  ctx.fillStyle = COL.shot;
-  for (let i = 1; i <= RONTES; i++) {
-    if (skotex[i] !== 0 || skotey[i] !== 0) {
-      ctx.beginPath();
-      ctx.arc(skotex[i], skotey[i], SK, 0, Math.PI * 2);
-      ctx.fill();
+    let dx = 0, dy = 0;
+    if (t < 0.4) {
+        const e = (1 - Math.cos(t / 0.4 * Math.PI)) / 2;
+        dy = e * BREATH_AMPLITUDE_Y;
+        dx = e * BREATH_AMPLITUDE_X;
+    } else if (t < 0.5) {
+        dy = BREATH_AMPLITUDE_Y;
+        dx = BREATH_AMPLITUDE_X;
+    } else {
+        const e = (1 - Math.cos((t - 0.5) / 0.5 * Math.PI)) / 2;
+        dy = (1 - e) * BREATH_AMPLITUDE_Y;
+        dx = (1 - e) * BREATH_AMPLITUDE_X;
     }
-  }
+    return { dx, dy };
 }
 
-function drawScorecard() {
-  ctx.fillStyle = COL.bg;
-  ctx.fillRect(0, 0, 640, 480);
-
-  // Draw all targets
-  for (let i = 0; i < TARGETS.length; i++) {
-    const t = TARGETS[i];
-    drawTarget(t.x, t.y);
-
-    // Label
-    if (t.label) {
-      ctx.fillStyle = COL.crosshair;
-      ctx.font = '12px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(t.label, t.x, t.y - 60);
-    }
-  }
-
-  // Practice target label
-  ctx.fillStyle = COL.crosshair;
-  ctx.font = '11px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('PRACTICE SHOTS ONLY', 320, 285);
-
-  // Heartbeat chart
-  drawHeartbeatChart(220, 432, 200, 20);
-
-  // Breath indicator
-  drawBreathIndicator(185, 432, 25, 20);
-
-  // S.A.N.S.S.U. 01
-  ctx.fillStyle = COL.crosshair;
-  ctx.font = 'bold 20px serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('S.A.N.S.S.U. 01', 320, 460);
-
-  // Compute shot counts (needed for labels and counter)
-  const shotsUsed = Math.min(aantal - 1, RONTES);
-  const scoring = countScoringShots();
-
-  // Labels
-  ctx.font = '11px serif';
-  ctx.textAlign = 'left';
-  ctx.fillStyle = COL.crosshair;
-  ctx.fillText('NAME ........................', 40, 460);
-  ctx.fillText('COMP ..................', 450, 460);
-  ctx.fillText(`Shots: ${scoring}/10`, 40, 208);
-  ctx.fillText('TOTAL', 40, 220);
-  ctx.fillText('......', 40, 235);
-  ctx.fillText('TEAM', 560, 220);
-  ctx.fillText('.........', 555, 235);
-
-  // User data
-  ctx.fillStyle = '#00a';
-  ctx.font = '12px monospace';
-  ctx.fillText(naam, 100, 475);
-  ctx.fillText(komp, 510, 475);
-  ctx.fillText(span, 558, 248);
-
-  // Score
-  ctx.fillStyle = '#0a0';
-  ctx.fillText(String(telling), 42, 248);
-
-  // Draw shots on card
-  drawShots();
-
-  // Shot counter
-  ctx.fillStyle = '#fff';
-  ctx.font = '11px monospace';
-  ctx.textAlign = 'right';
-  ctx.fillText(`${shotsUsed}/${RONTES}`, 630, 15);
-  ctx.textAlign = 'left';
+// ===== HEARTBEAT WAVEFORM (for ECG) =====
+function heartbeatWaveform(t) {
+    if (t < 0.05) return 0;
+    if (t < 0.08) return 0.15 * Math.sin((t - 0.05) / 0.03 * Math.PI);
+    if (t < 0.12) return 0;
+    if (t < 0.14) return -0.15;
+    if (t < 0.18) return Math.sin((t - 0.14) / 0.04 * Math.PI);
+    if (t < 0.21) return -0.25;
+    if (t < 0.25) return -0.25 * (1 - (t - 0.21) / 0.04);
+    if (t < 0.35) return 0;
+    if (t < 0.45) return 0.2 * Math.sin((t - 0.35) / 0.10 * Math.PI);
+    return 0;
 }
 
-function drawIntroScreen() {
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, 640, 480);
-
-  ctx.textAlign = 'center';
-
-  ctx.fillStyle = '#0a0';
-  ctx.font = '22px serif';
-  ctx.fillText('SOUTH AFRICAN', 320, 75);
-
-  ctx.fillStyle = '#ff0';
-  ctx.font = '24px serif';
-  ctx.fillText('NATIONAL', 320, 110);
-
-  ctx.fillStyle = '#a00';
-  ctx.font = 'bold 30px serif';
-  ctx.fillText('BISLEY SHOOTING 1995', 320, 160);
-
-  ctx.fillStyle = '#00a';
-  ctx.font = '22px serif';
-  ctx.fillText('(0.22" CALIBRE)', 320, 195);
-
-  // Three demo targets
-  for (const tx of [170, 320, 470]) {
-    drawTarget(tx, 275);
-  }
-
-  // Demo shots (animated)
-  ctx.fillStyle = '#a00';
-  if (introStep >= 1) {
-    ctx.beginPath();
-    ctx.arc(340, 255, 5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  if (introStep >= 2) {
-    ctx.beginPath();
-    ctx.arc(320, 260, 5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  if (introStep >= 3) {
-    ctx.beginPath();
-    ctx.arc(320, 275, 5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.fillStyle = '#fff';
-  ctx.font = '14px sans-serif';
-  ctx.fillText('PROGRAMMING - NICO GERBER', 320, 420);
-
-  ctx.fillStyle = '#888';
-  ctx.font = '12px sans-serif';
-  ctx.fillText('Press [6] for Help  |  Press any key to start', 320, 450);
-
-  ctx.textAlign = 'left';
+// ===== HEARTBEAT PULSE (for crosshair) =====
+function heartbeatPulse(beatPos) {
+    if (beatPos < 0.08) return Math.sin(beatPos / 0.08 * Math.PI);
+    if (beatPos >= 0.15 && beatPos < 0.22) return 0.4 * Math.sin((beatPos - 0.15) / 0.07 * Math.PI);
+    return 0;
 }
 
-function drawHelp() {
-  // Dark overlay
-  ctx.fillStyle = 'rgba(0, 0, 100, 0.95)';
-  ctx.fillRect(130, 80, 380, 374);
-
-  ctx.fillStyle = '#0a0';
-  ctx.font = '12px monospace';
-  ctx.textAlign = 'left';
-  ctx.fillText('HELP - SA NATIONAL BISLEY SHOOTING .22', 145, 105);
-
-  ctx.fillStyle = '#ff0';
-  ctx.fillText('KEYS', 145, 130);
-
-  const lines1 = [
-    ['UP    x Medium  = [\u2191]', 'Arrow Up'],
-    ['DOWN  x Medium  = [\u2193]', 'Arrow Down'],
-    ['LEFT  x Medium  = [\u2190]', 'Arrow Left'],
-    ['RIGHT x Medium  = [\u2192]', 'Arrow Right'],
-  ];
-  let ly = 150;
-  ctx.fillStyle = '#ff0';
-  for (const [txt] of lines1) {
-    ctx.fillText(txt, 145, ly);
-    ly += 14;
-  }
-
-  ly += 6;
-  const lines2 = [
-    'UP    x Maximum = [W]',
-    'DOWN  x Maximum = [S]',
-    'LEFT  x Maximum = [A]',
-    'RIGHT x Maximum = [D]',
-  ];
-  for (const txt of lines2) {
-    ctx.fillText(txt, 145, ly);
-    ly += 14;
-  }
-
-  ly += 6;
-  ctx.fillText('SHOOT           = [ENTER / SPACE]', 145, ly); ly += 14;
-  ctx.fillText('HOLD BREATH     = [SHIFT]', 145, ly); ly += 14;
-  ctx.fillText('EXIT            = [ESC]', 145, ly); ly += 20;
-
-  ctx.fillStyle = '#fff';
-  ctx.fillText('FUNCTIONS', 145, ly); ly += 20;
-
-  ctx.fillText('NAME        = [1]', 145, ly); ly += 14;
-  ctx.fillText('TEAM        = [2]', 145, ly); ly += 14;
-  ctx.fillText('COMPETITION = [3]', 145, ly); ly += 14;
-  ctx.fillText('SCORE       = [4]', 145, ly); ly += 14;
-  ly += 6;
-  ctx.fillText('RESTART     = [5]', 145, ly); ly += 14;
-  ctx.fillText('HELP        = [6]', 145, ly); ly += 14;
-  ctx.fillText('FULLSCREEN  = [F11]', 145, ly); ly += 20;
-
-  ctx.fillStyle = '#888';
-  ctx.font = '11px monospace';
-  ctx.fillText('Press any key to close', 145, ly);
-
-  ctx.textAlign = 'left';
-}
-
-function drawResults() {
-  const afstand = (telling === 100) ? 220 : 260;
-
-  ctx.fillStyle = 'rgba(0, 0, 100, 0.95)';
-  ctx.fillRect(130, 80, 380, 340);
-
-  ctx.textAlign = 'center';
-
-  ctx.fillStyle = COL.crosshair;
-  ctx.font = '22px serif';
-  ctx.fillText('YOUR ROUNDS ARE DONE!', 320, 130);
-
-  ctx.fillStyle = COL.text1;
-  ctx.font = '22px serif';
-  ctx.fillText('SCORE', 300, 175);
-
-  ctx.fillStyle = COL.text2;
-  ctx.font = 'bold 64px serif';
-  ctx.fillText(String(telling), afstand, 260);
-  ctx.font = 'bold 48px serif';
-  ctx.fillText('%', 400, 250);
-
-  ctx.fillStyle = COL.shot;
-  ctx.font = '16px serif';
-  ctx.fillText('OPTIONS', 320, 300);
-  ctx.fillText('[9]   VIEW SCORECARD (10s)', 320, 330);
-  ctx.fillText('[5]   SHOOT AGAIN', 320, 355);
-  ctx.fillText('[ESC] EXIT', 320, 380);
-
-  ctx.textAlign = 'left';
-}
-
-function updateTouchControlsVisibility() {
-  if (!isTouchDevice) return;
-  const show = state === 'shooting';
-  touchLeft.classList.toggle('touch-active', show);
-  touchRight.classList.toggle('touch-active', show);
-  // Reset joystick visuals when hiding
-  if (!show && joystickActive) {
-    joystickActive = false;
-    joystickDx = joystickDy = 0;
-    joystickRing.style.display = 'none';
-    joystickThumb.style.display = 'none';
-    joystickHint.style.display = '';
-  }
-}
-
-// --- Count scoring shots (shots closest to a scoring target, not practice) ---
-function countScoringShots() {
-  let count = 0;
-  for (let s = 1; s < aantal; s++) {
-    if (skotex[s] === 0 && skotey[s] === 0) continue;
-    let minDist = Infinity;
-    let closestIdx = -1;
-    for (let ti = 0; ti < TARGETS.length; ti++) {
-      const dx = TARGETS[ti].x - skotex[s];
-      const dy = TARGETS[ti].y - skotey[s];
-      const dist = dx * dx + dy * dy;
-      if (dist < minDist) { minDist = dist; closestIdx = ti; }
-    }
-    if (closestIdx !== 5) count++; // not the practice target
-  }
-  return count;
-}
-
-// --- Score Calculation (port of SCORE procedure) ---
+// ===== SCORING =====
 function calculateScore() {
-  telling = 0;
-  for (const ti of SCORING_TARGETS) {
-    const tx = TARGETS[ti].x;
-    const ty = TARGETS[ti].y;
-    let minDist = 60;
-
-    for (let s = 1; s <= RONTES; s++) {
-      if (skotex[s] === 0 && skotey[s] === 0) continue;
-      const dx = Math.abs(tx - skotex[s]);
-      const dy = Math.abs(ty - skotey[s]);
-      const dist = Math.round(Math.sqrt(dx * dx + dy * dy));
-      if (dist < minDist) minDist = dist;
+    let total = 0;
+    for (let ti = 0; ti < 11; ti++) {
+        if (ti === 5) continue; // skip practice
+        let minDist = Infinity;
+        for (const s of shots) {
+            const dx = Math.abs(s.x - TARGET_POSITIONS[ti].x);
+            const dy = Math.abs(s.y - TARGET_POSITIONS[ti].y);
+            const d = Math.round(Math.sqrt(dx * dx + dy * dy));
+            if (d < minDist) minDist = d;
+        }
+        if (minDist <= 11) total += 10;
+        else if (minDist <= 21) total += 9;
+        else if (minDist <= 30) total += 8;
+        else if (minDist <= 40) total += 7;
+        else if (minDist <= 56) total += 6;
     }
-
-    if (minDist <= 11) telling += 10;
-    else if (minDist <= 21) telling += 9;
-    else if (minDist <= 30) telling += 8;
-    else if (minDist <= 40) telling += 7;
-    else if (minDist <= 56) telling += 6;
-    // else 0
-  }
+    return total;
 }
 
-// --- Input Handling ---
-function showOverlay(id, inputId) {
-  const overlay = document.getElementById(id);
-  const input = document.getElementById(inputId);
-  overlay.classList.add('active');
-  input.focus();
-  input.value = '';
+function isScoreShot(x, y) {
+    let minDist = Infinity, minIdx = 0;
+    for (let i = 0; i < 11; i++) {
+        const dx = x - TARGET_POSITIONS[i].x;
+        const dy = y - TARGET_POSITIONS[i].y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < minDist) { minDist = d2; minIdx = i; }
+    }
+    return minIdx !== 5;
 }
 
-function hideOverlay(id) {
-  document.getElementById(id).classList.remove('active');
-  canvas.focus();
+// ===== FIRE SHOT =====
+function fireShot() {
+    if (gameState !== 'shooting') return;
+    const sx = cx + driftOx + breathDx;
+    const sy = cy + driftOy + breathDy;
+    shots.push({ x: sx, y: sy });
+    totalShots++;
+    if (isScoreShot(sx, sy)) scoringShots++;
+    score = calculateScore();
+    flashAlpha = 1.0;
+    flashX = sx; flashY = sy;
+    playFireSound();
+    // Check round end
+    if (scoringShots >= 10 || totalShots >= 13) {
+        gameState = 'results';
+    }
 }
 
-// Overlay input handlers
-document.getElementById('input-name').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    naam = document.getElementById('input-name').value;
-    hideOverlay('overlay-name');
-    state = 'shooting';
-  } else if (e.key === 'Escape') {
-    hideOverlay('overlay-name');
-    state = 'shooting';
-  }
-});
+// ===== RESET =====
+function resetGame() {
+    cx = 320; cy = 220;
+    driftOx = 0; driftOy = 0; driftVx = 0; driftVy = 0;
+    breathPhase = 0;
+    breathHolding = false; breathRecovering = false;
+    breathStress = 0; breathDx = 0; breathDy = 0;
+    breathHoldStartTime = 0; breathReleaseTime = 0;
+    heartBPM = 60; heartBPMTarget = 60;
+    heartPhase = 0; heartDy = 0;
+    ecgBuffer = new Float32Array(200);
+    ecgWriteIdx = 0; ecgBeatPhase = 0; ecgLastSampleTime = 0;
+    shots = []; scoringShots = 0; totalShots = 0; score = 0;
+    flashAlpha = 0;
+    gameState = 'shooting';
+}
 
-document.getElementById('input-team').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    span = document.getElementById('input-team').value;
-    hideOverlay('overlay-team');
-    state = 'shooting';
-  } else if (e.key === 'Escape') {
-    hideOverlay('overlay-team');
-    state = 'shooting';
-  }
-});
+// ===== CLAMP CENTER =====
+function clampCenter() {
+    let clamped = false;
+    if (cx >= RG) { cx = RG - 1; clamped = true; }
+    if (cx <= LG) { cx = LG + 1; clamped = true; }
+    if (cy >= OG) { cy = OG - 1; clamped = true; }
+    if (cy <= BG) { cy = BG + 1; clamped = true; }
+    if (clamped) playBoundarySound();
+}
 
-document.getElementById('input-comp').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    komp = document.getElementById('input-comp').value;
-    hideOverlay('overlay-comp');
-    state = 'shooting';
-  } else if (e.key === 'Escape') {
-    hideOverlay('overlay-comp');
-    state = 'shooting';
-  }
-});
-
-// Main keyboard handler
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'F11') {
-    e.preventDefault();
-    toggleFullscreen();
-    return;
-  }
-
-  if (e.key === 'Shift' && state === 'shooting' && !breathHolding) {
+// ===== BREATH HOLD =====
+function startBreathHold() {
+    if (breathHolding) return;
     breathHolding = true;
-    breathHoldStart = performance.now();
+    breathRecovering = false;
+    breathHoldStartTime = performance.now();
     breathHoldPhase = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
-    // Capture current waveform displacement at press time
-    const bwStart = breathingWaveform(breathHoldPhase);
-    breathHoldStartDx = bwStart.x;
-    breathHoldStartDy = bwStart.y;
-    // Timing reward: how close to natural pause (0.4–0.5)?
+    const bw = breathingWaveform(breathHoldPhase);
+    breathHoldStartDx = bw.dx;
+    breathHoldStartDy = bw.dy;
     breathHoldQuality = 1 - Math.min(Math.abs(breathHoldPhase - 0.45) / 0.45, 1);
     breathHoldRestDx = breathHoldStartDx * 0.9;
     breathHoldRestDy = breathHoldStartDy * (0.7 + 0.3 * breathHoldQuality);
-    return;
-  }
+}
 
-  if (state === 'input_name' || state === 'input_team' || state === 'input_comp') return;
+function releaseBreathHold() {
+    if (!breathHolding) return;
+    breathHolding = false;
+    breathRecovering = true;
+    breathReleaseTime = performance.now();
+    heartBPMTarget = 60;
+}
 
-  keys[e.key] = true;
-
-  if (state === 'help') {
-    state = 'shooting';
-    return;
-  }
-
-  if (state === 'results') {
-    if (e.key === '9') {
-      state = 'scorecard';
-      scorecardCountdown = 9;
-      scorecardTimer = performance.now();
-    } else if (e.key === '5') {
-      resetGame();
-      state = 'shooting';
-    } else if (e.key === 'Escape') {
-      resetGame();
-      state = 'intro';
-      introStep = 0;
-      introTimer = performance.now();
+// ===== KEYBOARD =====
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'F11') {
+        e.preventDefault();
+        toggleFullscreen();
+        return;
     }
-    return;
-  }
 
-  if (state === 'scorecard') {
-    // Any key returns to results
-    state = 'results';
-    return;
-  }
+    ensureAudio();
 
-  if (state === 'shooting') {
-    e.preventDefault();
-    const key = e.key;
+    if (gameState === 'intro') {
+        // No keyboard interaction during intro (auto-advance only)
+        return;
+    }
 
-    switch (key) {
-      case 'ArrowUp':    cy -= YW_MOVE; break;
-      case 'ArrowDown':  cy += YW_MOVE; break;
-      case 'ArrowLeft':  cx -= XD; break;
-      case 'ArrowRight': cx += XD; break;
-      case 'w': case 'W': cy -= YJ; break;
-      case 's': case 'S': cy += YJ; break;
-      case 'a': case 'A': cx -= XJ; break;
-      case 'd': case 'D': cx += XJ; break;
-      case 'Enter':
-      case ' ':
-        if (aantal <= RONTES) {
-          skotex[aantal] = cx + driftOx + breathCurrentDx;
-          skotey[aantal] = cy + driftOy + breathCurrentDy;
-          playFire();
-          flashAlpha = 1.0;
-          flashX = skotex[aantal];
-          flashY = skotey[aantal];
-          aantal++;
-          calculateScore();
-          if (aantal > RONTES || countScoringShots() >= 10) {
-            state = 'results';
-          }
+    if (gameState === 'help') {
+        gameState = 'shooting';
+        return;
+    }
+
+    if (gameState === 'scorecard') {
+        gameState = 'results';
+        return;
+    }
+
+    if (gameState === 'results') {
+        if (e.key === '9') {
+            gameState = 'scorecard';
+            scorecardCountdown = 9;
+            scorecardLastTick = performance.now();
+        } else if (e.key === '5') {
+            resetGame();
+        } else if (e.key === 'Escape') {
+            gameState = 'intro';
+            introStartTime = performance.now();
+            demoShots = []; demoShotsFired = [false, false, false];
         }
-        break;
-      case '1':
-        state = 'input_name';
-        showOverlay('overlay-name', 'input-name');
-        break;
-      case '2':
-        state = 'input_team';
-        showOverlay('overlay-team', 'input-team');
-        break;
-      case '3':
-        state = 'input_comp';
-        showOverlay('overlay-comp', 'input-comp');
-        break;
-      case '4':
-        calculateScore();
-        break;
-      case '5':
-        resetGame();
-        break;
-      case '6':
-        state = 'help';
-        break;
-      case 'Escape':
-        state = 'intro';
-        introStep = 0;
-        introTimer = performance.now();
-        break;
+        return;
     }
 
-    // Boundary clamping on center point
-    let bounced = false;
-    if (cx >= RG) { cx = RG - 1; bounced = true; }
-    if (cx <= LG) { cx = LG + 1; bounced = true; }
-    if (cy >= OG) { cy = OG - 1; bounced = true; }
-    if (cy <= BG) { cy = BG + 1; bounced = true; }
-    if (bounced) playBoundary();
-  }
+    if (currentInputType) {
+        // Input overlay handles its own events
+        return;
+    }
+
+    if (gameState === 'shooting') {
+        switch (e.key) {
+            case 'ArrowUp': cy -= 10; clampCenter(); break;
+            case 'ArrowDown': cy += 10; clampCenter(); break;
+            case 'ArrowLeft': cx -= 10; clampCenter(); break;
+            case 'ArrowRight': cx += 10; clampCenter(); break;
+            case 'w': case 'W': cy -= 50; clampCenter(); break;
+            case 's': case 'S': cy += 50; clampCenter(); break;
+            case 'a': case 'A': cx -= 50; clampCenter(); break;
+            case 'd': case 'D': cx += 50; clampCenter(); break;
+            case 'Enter': case ' ':
+                e.preventDefault();
+                fireShot();
+                break;
+            case 'Shift': startBreathHold(); break;
+            case '1': showInput('name'); break;
+            case '2': showInput('team'); break;
+            case '3': showInput('comp'); break;
+            case '4': score = calculateScore(); break;
+            case '5': resetGame(); break;
+            case '6': gameState = 'help'; break;
+            case 'Escape':
+                gameState = 'intro';
+                introStartTime = performance.now();
+                demoShots = []; demoShotsFired = [false, false, false];
+                break;
+        }
+    }
 });
 
 document.addEventListener('keyup', (e) => {
-  delete keys[e.key];
-  if (e.key === 'Shift' && breathHolding) {
-    breathHolding = false;
-    breathRecovering = true;
-    breathRecoveryStart = performance.now();
-    // Heart rate target back to resting on release
-    heartBPMTarget = 60;
-  }
+    if (e.key === 'Shift') releaseBreathHold();
 });
 
-// --- DOM-based touch controls (margin overlays) ---
-function resumeAudio() {
-  if (typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+// ===== INPUT OVERLAY =====
+function showInput(type) {
+    currentInputType = type;
+    const labels = { name: 'ENTER YOUR NAME', team: 'ENTER YOUR TEAM', comp: 'ENTER THE COMPETITION' };
+    const maxLens = { name: 15, team: 6, comp: 11 };
+    const vals = { name: playerName, team: playerTeam, comp: playerComp };
+    inputLabel.textContent = labels[type];
+    inputField.maxLength = maxLens[type];
+    inputField.value = vals[type];
+    inputOverlay.classList.add('active');
+    inputField.focus();
 }
 
-if (isTouchDevice) {
-  // Joystick listeners on left margin zone
-  touchLeft.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    resumeAudio();
-    if (state !== 'shooting') return;
-    const t = e.changedTouches[0];
-    const rect = touchLeft.getBoundingClientRect();
-    joystickActive = true;
-    joystickBaseX = t.clientX - rect.left;
-    joystickBaseY = t.clientY - rect.top;
-    joystickDx = joystickDy = 0;
-    // Show ring at touch point
-    joystickHint.style.display = 'none';
-    joystickRing.style.display = 'block';
-    joystickRing.style.left = (joystickBaseX - 180) + 'px';
-    joystickRing.style.top  = (joystickBaseY - 180) + 'px';
-    joystickThumb.style.display = 'block';
-    joystickThumb.style.left = (joystickBaseX - 48) + 'px';
-    joystickThumb.style.top  = (joystickBaseY - 48) + 'px';
-  }, { passive: false });
-
-  touchLeft.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    if (!joystickActive) return;
-    const t = e.changedTouches[0];
-    const rect = touchLeft.getBoundingClientRect();
-    let dx = (t.clientX - rect.left) - joystickBaseX;
-    let dy = (t.clientY - rect.top) - joystickBaseY;
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    if (dist > JOYSTICK_RADIUS) { dx = dx/dist*JOYSTICK_RADIUS; dy = dy/dist*JOYSTICK_RADIUS; }
-    joystickDx = dx;
-    joystickDy = dy;
-    joystickThumb.style.left = (joystickBaseX + dx - 48) + 'px';
-    joystickThumb.style.top  = (joystickBaseY + dy - 48) + 'px';
-  }, { passive: false });
-
-  function joystickEnd(e) {
-    e.preventDefault();
-    joystickActive = false;
-    joystickDx = joystickDy = 0;
-    joystickRing.style.display = 'none';
-    joystickThumb.style.display = 'none';
-    joystickHint.style.display = '';
-  }
-  touchLeft.addEventListener('touchend', joystickEnd, { passive: false });
-  touchLeft.addEventListener('touchcancel', joystickEnd, { passive: false });
-
-  // Fire button listeners
-  fireBtnEl.addEventListener('touchstart', (e) => {
-    e.preventDefault();
+inputField.addEventListener('keydown', (e) => {
     e.stopPropagation();
-    resumeAudio();
-    if (state !== 'shooting') return;
-    firePressed = true;
-    fireBtnEl.classList.add('pressed');
-    if (aantal <= RONTES) {
-      skotex[aantal] = cx + driftOx + breathCurrentDx;
-      skotey[aantal] = cy + driftOy + breathCurrentDy;
-      playFire();
-      flashAlpha = 1.0;
-      flashX = skotex[aantal];
-      flashY = skotey[aantal];
-      aantal++;
-      calculateScore();
-      if (aantal > RONTES || countScoringShots() >= 10) state = 'results';
+    if (e.key === 'Enter') {
+        const val = inputField.value;
+        if (currentInputType === 'name') playerName = val;
+        else if (currentInputType === 'team') playerTeam = val;
+        else if (currentInputType === 'comp') playerComp = val;
+        closeInput();
+    } else if (e.key === 'Escape') {
+        closeInput();
     }
-  }, { passive: false });
+});
 
-  function fireEnd(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    firePressed = false;
-    fireBtnEl.classList.remove('pressed');
-  }
-  fireBtnEl.addEventListener('touchend', fireEnd, { passive: false });
-  fireBtnEl.addEventListener('touchcancel', fireEnd, { passive: false });
+function closeInput() {
+    currentInputType = '';
+    inputOverlay.classList.remove('active');
+    canvas.focus();
+}
 
-  // Breath-hold button listeners
-  breathBtnEl.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    resumeAudio();
-    if (state !== 'shooting') return;
-    breathHoldActive = true;
-    breathBtnEl.classList.add('pressed');
-    if (!breathHolding) {
-      breathHolding = true;
-      breathHoldStart = performance.now();
-      breathHoldPhase = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
-      const bw = breathingWaveform(breathHoldPhase);
-      breathHoldStartDx = bw.x;
-      breathHoldStartDy = bw.y;
-      breathHoldQuality = 1 - Math.min(Math.abs(breathHoldPhase - 0.45) / 0.45, 1);
-      breathHoldRestDx = breathHoldStartDx * 0.9;
-      breathHoldRestDy = breathHoldStartDy * (0.7 + 0.3 * breathHoldQuality);
+// ===== TOUCH CONTROLS =====
+function detectTouch() {
+    isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+}
+
+function setupTouchControls() {
+    detectTouch();
+    if (!isTouchDevice) return;
+
+    // Breath hold button
+    const breathBtn = document.createElement('canvas');
+    breathBtn.width = 280; breathBtn.height = 280;
+    breathBtn.style.cssText = 'position:absolute;touch-action:none;';
+    leftZone.appendChild(breathBtn);
+    positionBreathButton(breathBtn);
+
+    // Joystick area
+    const joyCanvas = document.createElement('canvas');
+    joyCanvas.width = 300; joyCanvas.height = 300;
+    joyCanvas.style.cssText = 'position:absolute;touch-action:none;';
+    leftZone.appendChild(joyCanvas);
+    positionJoystick(joyCanvas);
+
+    // Fire button
+    const fireBtn = document.createElement('canvas');
+    fireBtn.width = 320; fireBtn.height = 320;
+    fireBtn.style.cssText = 'position:absolute;touch-action:none;';
+    rightZone.appendChild(fireBtn);
+    positionFireButton(fireBtn);
+
+    // Breath hold events
+    breathBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        ensureAudio();
+        breathButtonPressed = true;
+        startBreathHold();
+        drawBreathBtn(breathBtn, true);
+    }, { passive: false });
+    breathBtn.addEventListener('touchend', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        breathButtonPressed = false;
+        releaseBreathHold();
+        drawBreathBtn(breathBtn, false);
+    }, { passive: false });
+    breathBtn.addEventListener('touchcancel', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        breathButtonPressed = false;
+        releaseBreathHold();
+        drawBreathBtn(breathBtn, false);
+    }, { passive: false });
+
+    // Fire button events
+    fireBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        ensureAudio();
+        fireButtonPressed = true;
+        fireShot();
+        drawFireBtn(fireBtn, true);
+    }, { passive: false });
+    fireBtn.addEventListener('touchend', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        fireButtonPressed = false;
+        drawFireBtn(fireBtn, false);
+    }, { passive: false });
+    fireBtn.addEventListener('touchcancel', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        fireButtonPressed = false;
+        drawFireBtn(fireBtn, false);
+    }, { passive: false });
+
+    // Joystick events
+    joyCanvas.addEventListener('touchstart', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        ensureAudio();
+        joystickActive = true;
+        const touch = e.touches[0];
+        const rect = joyCanvas.getBoundingClientRect();
+        joystickBaseX = touch.clientX - rect.left;
+        joystickBaseY = touch.clientY - rect.top;
+        joystickThumbX = joystickBaseX;
+        joystickThumbY = joystickBaseY;
+        joystickDx = 0; joystickDy = 0;
+    }, { passive: false });
+    joyCanvas.addEventListener('touchmove', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (!joystickActive) return;
+        const touch = e.touches[0];
+        const rect = joyCanvas.getBoundingClientRect();
+        joystickThumbX = touch.clientX - rect.left;
+        joystickThumbY = touch.clientY - rect.top;
+        let dx = joystickThumbX - joystickBaseX;
+        let dy = joystickThumbY - joystickBaseY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > JOYSTICK_RADIUS) {
+            dx = dx / dist * JOYSTICK_RADIUS;
+            dy = dy / dist * JOYSTICK_RADIUS;
+            joystickThumbX = joystickBaseX + dx;
+            joystickThumbY = joystickBaseY + dy;
+        }
+        joystickDx = dx;
+        joystickDy = dy;
+    }, { passive: false });
+    const endJoy = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        joystickActive = false;
+        joystickDx = 0; joystickDy = 0;
+    };
+    joyCanvas.addEventListener('touchend', endJoy, { passive: false });
+    joyCanvas.addEventListener('touchcancel', endJoy, { passive: false });
+
+    // Block events on zones from reaching canvas
+    leftZone.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
+    leftZone.addEventListener('touchmove', (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
+    leftZone.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
+    rightZone.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
+    rightZone.addEventListener('touchmove', (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
+    rightZone.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
+
+    // Store refs for redraw
+    window._breathBtn = breathBtn;
+    window._fireBtn = fireBtn;
+    window._joyCanvas = joyCanvas;
+
+    drawBreathBtn(breathBtn, false);
+    drawFireBtn(fireBtn, false);
+    drawJoystick(joyCanvas, false);
+}
+
+function positionBreathButton(el) {
+    el.style.left = '50%';
+    el.style.top = '35%';
+    el.style.transform = 'translate(-50%, -50%)';
+}
+function positionJoystick(el) {
+    el.style.left = '50%';
+    el.style.top = '65%';
+    el.style.transform = 'translate(-50%, -50%)';
+}
+function positionFireButton(el) {
+    el.style.left = '50%';
+    el.style.top = '75%';
+    el.style.transform = 'translate(-50%, -50%)';
+}
+
+function drawBreathBtn(cvs, pressed) {
+    const c = cvs.getContext('2d');
+    const cx = cvs.width / 2, cy = cvs.height / 2, r = 132;
+    c.clearRect(0, 0, cvs.width, cvs.height);
+    c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2);
+    c.fillStyle = pressed ? 'rgba(0,255,0,0.75)' : 'rgba(0,102,0,0.40)';
+    c.fill();
+    c.strokeStyle = pressed ? 'rgba(0,255,0,0.90)' : 'rgba(0,255,0,0.55)';
+    c.lineWidth = 6; c.stroke();
+    c.fillStyle = `rgba(255,255,255,${pressed ? 1.0 : 0.85})`;
+    c.font = 'bold 33px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('HOLD', cx, cy - 18);
+    c.fillText('BREATH', cx, cy + 18);
+}
+
+function drawFireBtn(cvs, pressed) {
+    const c = cvs.getContext('2d');
+    const cx = cvs.width / 2, cy = cvs.height / 2, r = 156;
+    c.clearRect(0, 0, cvs.width, cvs.height);
+    c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2);
+    c.fillStyle = pressed ? 'rgba(255,85,85,0.75)' : 'rgba(170,0,0,0.40)';
+    c.fill();
+    c.strokeStyle = pressed ? 'rgba(255,255,255,0.90)' : 'rgba(255,255,255,0.55)';
+    c.lineWidth = 6; c.stroke();
+    c.fillStyle = `rgba(255,255,255,${pressed ? 1.0 : 0.85})`;
+    c.font = 'bold 39px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('FIRE', cx, cy);
+}
+
+function drawJoystick(cvs, active) {
+    const c = cvs.getContext('2d');
+    c.clearRect(0, 0, cvs.width, cvs.height);
+    const cxc = cvs.width / 2, cyc = cvs.height / 2;
+    if (!active) {
+        // Idle hint
+        c.beginPath(); c.arc(cxc, cyc, 138, 0, Math.PI * 2);
+        c.fillStyle = 'rgba(0,0,170,0.40)'; c.fill();
+        c.strokeStyle = 'rgba(100,100,255,0.55)'; c.lineWidth = 6; c.stroke();
+        c.fillStyle = 'rgba(255,255,255,0.85)';
+        c.font = 'bold 30px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.fillText('MOVE', cxc, cyc);
+    } else {
+        // Active: base ring at touch-down point
+        c.beginPath(); c.arc(joystickBaseX, joystickBaseY, JOYSTICK_RADIUS, 0, Math.PI * 2);
+        c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = 6; c.stroke();
+        // Thumb nub
+        c.beginPath(); c.arc(joystickThumbX, joystickThumbY, 48, 0, Math.PI * 2);
+        c.fillStyle = 'rgba(255,255,255,0.60)'; c.fill();
     }
-  }, { passive: false });
+}
 
-  function breathEnd(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    breathHoldActive = false;
-    breathBtnEl.classList.remove('pressed');
+// ===== DRAWING =====
+function drawTarget(x, y, idx) {
+    // Filled circle
+    ctx.beginPath(); ctx.arc(x, y, 50, 0, Math.PI * 2);
+    ctx.fillStyle = '#808000'; ctx.fill();
+    // Concentric rings
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+    for (const r of [5, 15, 25, 35]) {
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+    // Label
+    if (idx === 5) {
+        ctx.fillStyle = '#fff'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('PRACTICE SHOTS ONLY', 320, 285);
+    } else {
+        const label = TARGET_LABELS[idx];
+        ctx.fillStyle = '#fff'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+        ctx.fillText(label, x, y - 60);
+    }
+}
+
+function drawScorecard() {
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    // Draw all targets
+    for (let i = 0; i < 11; i++) {
+        drawTarget(TARGET_POSITIONS[i].x, TARGET_POSITIONS[i].y, i);
+    }
+    // Draw shots
+    ctx.fillStyle = '#a00';
+    for (const s of shots) {
+        ctx.beginPath(); ctx.arc(s.x, s.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    // Labels
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#fff'; ctx.font = '11px serif';
+    ctx.fillText('Shots: ' + scoringShots + '/10', 40, 208);
+    ctx.fillText('TOTAL', 40, 220);
+    ctx.fillText('......', 40, 235);
+    ctx.fillStyle = '#0a0'; ctx.font = '12px monospace';
+    ctx.fillText('' + score, 42, 248);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#fff'; ctx.font = '11px monospace';
+    ctx.fillText(totalShots + '/13', 630, 15);
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#fff'; ctx.font = '11px serif';
+    ctx.fillText('TEAM', 560, 220);
+    ctx.fillText('.........', 555, 235);
+    ctx.fillStyle = '#00a'; ctx.font = '12px monospace';
+    ctx.fillText(playerTeam, 558, 248);
+
+    ctx.fillStyle = '#fff'; ctx.font = '11px serif';
+    ctx.fillText('NAME ........................', 40, 460);
+    ctx.fillStyle = '#00a'; ctx.font = '12px monospace';
+    ctx.fillText(playerName, 100, 475);
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#fff'; ctx.font = '11px serif';
+    ctx.fillText('COMP ..................', 450, 460);
+    ctx.fillStyle = '#00a'; ctx.font = '12px monospace';
+    ctx.fillText(playerComp, 510, 475);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 20px serif';
+    ctx.fillText('S.A.N.S.S.U. 01', 320, 460);
+}
+
+function drawCrosshair(x, y) {
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+    // Circle
+    ctx.beginPath(); ctx.arc(x, y, 55, 0, Math.PI * 2); ctx.stroke();
+    // Tick marks (10px inward + 10px outward at cardinal points)
+    ctx.beginPath();
+    // Left
+    ctx.moveTo(x - 55 - 10, y); ctx.lineTo(x - 55 + 10, y);
+    // Right
+    ctx.moveTo(x + 55 - 10, y); ctx.lineTo(x + 55 + 10, y);
+    // Top
+    ctx.moveTo(x, y - 55 - 10); ctx.lineTo(x, y - 55 + 10);
+    // Bottom
+    ctx.moveTo(x, y + 55 - 10); ctx.lineTo(x, y + 55 + 10);
+    ctx.stroke();
+    // Center dot
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawECG() {
+    const ex = 220, ey = 432, ew = 200, eh = 20;
+    const cyc = ey;
+    // Background
+    ctx.fillStyle = '#000';
+    ctx.fillRect(ex, ey - eh / 2, ew, eh);
+    ctx.strokeStyle = '#300'; ctx.lineWidth = 1;
+    ctx.strokeRect(ex, ey - eh / 2, ew, eh);
+    // Trace
+    ctx.strokeStyle = '#f00'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i < 200; i++) {
+        const idx = (ecgWriteIdx + i) % 200;
+        const val = ecgBuffer[idx];
+        const px = ex + i;
+        const py = cyc - val * (eh / 2) * 0.85;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+}
+
+function drawBreathBar() {
+    const bx = 185, by = 432, bw = 25, bh = 20;
+    // Background
+    ctx.fillStyle = '#000';
+    ctx.fillRect(bx, by - bh / 2, bw, bh);
+    ctx.strokeStyle = '#030'; ctx.lineWidth = 1;
+    ctx.strokeRect(bx, by - bh / 2, bw, bh);
+    // Fill level
+    let level = Math.max(0, Math.min(1, breathDy / BREATH_AMPLITUDE_Y));
+    let color;
+    if (breathStress > 0.01) {
+        const g = Math.floor(255 * (1 - breathStress));
+        color = `rgb(255,${g},0)`;
+    } else if (breathRecovering) {
+        color = '#ff0';
+    } else if (breathHolding) {
+        color = '#0f0';
+    } else {
+        color = '#0a0';
+    }
+    ctx.fillStyle = color;
+    const fillH = level * bh;
+    ctx.fillRect(bx, by + bh / 2 - fillH, bw, fillH);
+    // Label when holding
     if (breathHolding) {
-      breathHolding = false;
-      breathRecovering = true;
-      breathRecoveryStart = performance.now();
-      heartBPMTarget = 60;
+        ctx.fillStyle = color;
+        ctx.font = '7px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('BREATH', bx + bw / 2, by - bh / 2 - 3);
     }
-  }
-  breathBtnEl.addEventListener('touchend', breathEnd, { passive: false });
-  breathBtnEl.addEventListener('touchcancel', breathEnd, { passive: false });
 }
 
-function resetGame() {
-  aantal = 1;
-  telling = 0;
-  cx = 320;
-  cy = 220;
-  driftOx = 0;
-  driftOy = 0;
-  driftVx = 0;
-  driftVy = 0;
-  flashAlpha = 0;
-  skotex = new Array(RONTES + 1).fill(0);
-  skotey = new Array(RONTES + 1).fill(0);
-  breathPhase = 0;
-  breathHolding = false;
-  breathHoldStart = 0;
-  breathHoldPhase = 0;
-  breathRecovering = false;
-  breathRecoveryStart = 0;
-  breathStress = 0;
-  breathCurrentDx = 0;
-  breathCurrentDy = 0;
-  breathHoldStartDx = 0;
-  breathHoldStartDy = 0;
-  breathHoldRestDx = 0;
-  breathHoldRestDy = 0;
-  breathHoldQuality = 0;
-  heartBPM = 60;
-  heartBPMTarget = 60;
+function drawMuzzleFlash() {
+    if (flashAlpha <= 0) return;
+    const a = flashAlpha;
+    const grad = ctx.createRadialGradient(flashX, flashY, 0, flashX, flashY, 60);
+    grad.addColorStop(0, `rgba(255,255,255,${a})`);
+    grad.addColorStop(0.3, `rgba(255,255,100,${a * 0.7})`);
+    grad.addColorStop(0.7, `rgba(255,160,0,${a * 0.3})`);
+    grad.addColorStop(1, 'rgba(255,160,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(flashX - 60, flashY - 60, 120, 120);
+    // Full-screen overlay
+    ctx.fillStyle = `rgba(255,255,255,${a * 0.15})`;
+    ctx.fillRect(0, 0, W, H);
 }
 
-// --- Game Loop ---
-function gameLoop(timestamp) {
-  if (!lastFrameTime) lastFrameTime = timestamp;
-  const dt = timestamp - lastFrameTime;
-  lastFrameTime = timestamp;
-
-  switch (state) {
-    case 'intro':
-      updateIntro(timestamp);
-      drawIntroScreen();
-      break;
-
-    case 'shooting':
-    case 'input_name':
-    case 'input_team':
-    case 'input_comp':
-      // Apply joystick to aim center
-      if (joystickActive) {
+// ===== PHYSICS UPDATE =====
+function updatePhysics(dt, now) {
+    // Joystick movement
+    if (joystickActive && gameState === 'shooting') {
         cx += (joystickDx / JOYSTICK_RADIUS) * JOYSTICK_MAX_SPEED;
         cy += (joystickDy / JOYSTICK_RADIUS) * JOYSTICK_MAX_SPEED;
-        let bounced = false;
-        if (cx >= RG) { cx = RG - 1; bounced = true; }
-        if (cx <= LG) { cx = LG + 1; bounced = true; }
-        if (cy >= OG) { cy = OG - 1; bounced = true; }
-        if (cy <= BG) { cy = BG + 1; bounced = true; }
-        if (bounced) playBoundary();
-      }
+        clampCenter();
+    }
 
-      // --- Breathing state update ---
-      breathPhase += dt;
+    // Heart rate chase
+    const hrRate = heartBPMTarget > heartBPM ? 0.0004 : 0.0002;
+    heartBPM += (heartBPMTarget - heartBPM) * hrRate * dt;
 
-      // Compute breathing displacement
-      let breathDx = 0, breathDy = 0;
-      if (breathHolding) {
-        const holdElapsed = performance.now() - breathHoldStart;
-        if (holdElapsed > BREATH_HOLD_MAX) {
-          // Over-holding: ramp stress from 0→1 over 2s past limit
-          breathStress = Math.min(1, (holdElapsed - BREATH_HOLD_MAX) / 2000);
-          // Heart rate ramps up with stress during over-hold (delayed onset — no HR increase in first ~0.5s past limit)
-          const hrStress = Math.max(0, (breathStress - 0.25) / 0.75);
-          heartBPMTarget = 60 + hrStress * 40;
-        } else {
-          breathStress = 0;
-        }
-        // Gradual settle from start position to rest point over 500ms
+    // Heart phase
+    const heartPeriod = 60000 / heartBPM;
+    heartPhase += dt;
+    if (heartPhase >= heartPeriod) heartPhase -= heartPeriod;
+    const beatPos = heartPhase / heartPeriod;
+    const pulse = heartbeatPulse(beatPos);
+    const heartAmplitude = HEART_AMPLITUDE * (1 + breathStress * 0.8);
+    heartDy = -pulse * heartAmplitude;
+
+    // Breathing
+    if (breathHolding) {
+        const holdElapsed = now - breathHoldStartTime;
+        // Settle phase (first 500ms)
         const settleProgress = Math.min(1, holdElapsed / 500);
-        // Smoothstep easing
         const eased = settleProgress * settleProgress * (3 - 2 * settleProgress);
         breathDx = breathHoldStartDx + (breathHoldRestDx - breathHoldStartDx) * eased;
         breathDy = breathHoldStartDy + (breathHoldRestDy - breathHoldStartDy) * eased;
-        // Add slow circular wobble when stressed (replaces 15Hz tremor)
-        if (breathStress > 0) {
-          const wobbleFreq = performance.now() / 1000 * 2 * Math.PI * 2;
-          const wobbleAmp = breathStress * 4.0;
-          breathDx += Math.sin(wobbleFreq) * wobbleAmp;
-          breathDy += Math.cos(wobbleFreq * 0.7) * wobbleAmp * 1.2;
+
+        // Over-holding
+        if (holdElapsed > BREATH_HOLD_MAX) {
+            breathStress = Math.min(1, (holdElapsed - BREATH_HOLD_MAX) / 2000);
+            // Circular wobble
+            const t = now / 1000;
+            const freq = t * 2 * Math.PI * 2;
+            breathDx += Math.sin(freq) * breathStress * 4.0;
+            breathDy += Math.cos(freq * 0.7) * breathStress * 4.0 * 1.2;
+            // HR stress
+            const hrStress = Math.max(0, (breathStress - 0.25) / 0.75);
+            heartBPMTarget = 60 + hrStress * 40;
         }
-      } else if (breathRecovering) {
-        const recElapsed = performance.now() - breathRecoveryStart;
-        if (recElapsed < 400) {
-          // Gasp phase: quick involuntary inhale — crosshair jumps down
-          const gaspT = recElapsed / 400;
-          breathDy = 8 * Math.sin(gaspT * Math.PI);
-          breathDx = 0;
+    } else if (breathRecovering) {
+        const elapsed = now - breathReleaseTime;
+        if (elapsed < 400) {
+            // Gasp phase
+            const gaspT = elapsed / 400;
+            breathDy = 8 * Math.sin(gaspT * Math.PI);
+            breathDx = 0;
         } else {
-          // After gasp: exaggerated breathing fading to normal (1.5× → 1×)
-          const adjustedElapsed = recElapsed - 400;
-          const recProgress = Math.min(1, adjustedElapsed / BREATH_RECOVERY_TIME);
-          const ampMul = 1.5 - 0.5 * recProgress;
-          breathStress = breathStress * (1 - recProgress);
-          const breathT = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
-          const bw = breathingWaveform(breathT);
-          breathDx = bw.x * ampMul;
-          breathDy = bw.y * ampMul;
-          if (recProgress >= 1) {
-            breathRecovering = false;
-            breathStress = 0;
-          }
+            const recProgress = Math.min(1, (elapsed - 400) / BREATH_RECOVERY_TIME);
+            const ampMul = 1.5 - 0.5 * recProgress;
+            breathStress = breathStress * (1 - recProgress);
+            breathPhase += dt;
+            const t = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
+            const bw = breathingWaveform(t);
+            breathDx = bw.dx * ampMul;
+            breathDy = bw.dy * ampMul;
+            if (recProgress >= 1) {
+                breathRecovering = false;
+                breathStress = 0;
+            }
         }
-      } else {
+    } else {
         // Normal breathing
-        const breathT = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
-        const bw = breathingWaveform(breathT);
-        breathDx = bw.x;
-        breathDy = bw.y;
-      }
+        breathPhase += dt;
+        const t = (breathPhase % BREATH_PERIOD) / BREATH_PERIOD;
+        const bw = breathingWaveform(t);
+        breathDx = bw.dx;
+        breathDy = bw.dy;
+    }
 
-      // Heart rate smoothly chases target (asymmetric: ramp-up slower, recovery even slower)
-      const hrChaseRate = heartBPMTarget > heartBPM ? 0.0004 : 0.0002;
-      heartBPM += (heartBPMTarget - heartBPM) * hrChaseRate * dt;
-      // During normal breathing, target resting rate
-      if (!breathHolding) {
-        heartBPMTarget = 60;
-      }
+    // Drift
+    driftVx += (Math.random() - 0.5) * 0.12;
+    driftVy += (Math.random() - 0.5) * 0.12;
+    driftVx -= driftOx * 0.005;
+    driftVy -= driftOy * 0.005;
+    const maxSpeed = 0.5 * (1 + breathStress * 2.0);
+    const speed = Math.sqrt(driftVx * driftVx + driftVy * driftVy);
+    if (speed > maxSpeed) {
+        driftVx = driftVx / speed * maxSpeed;
+        driftVy = driftVy / speed * maxSpeed;
+    }
+    driftVx *= 0.95;
+    driftVy *= 0.95;
+    driftOx += driftVx;
+    driftOy += driftVy + heartDy;
 
-      // Store for shot position calculation
-      breathCurrentDx = breathDx;
-      breathCurrentDy = breathDy;
+    // Boundary check for sight
+    let sightX = cx + driftOx + breathDx;
+    let sightY = cy + driftOy + breathDy;
+    if (sightX >= RG) { driftOx = RG - 1 - cx - breathDx; driftVx = -driftVx; }
+    if (sightX <= LG) { driftOx = LG + 1 - cx - breathDx; driftVx = -driftVx; }
+    if (sightY >= OG) { driftOy = OG - 1 - cy - breathDy; driftVy = -driftVy; }
+    if (sightY <= BG) { driftOy = BG + 1 - cy - breathDy; driftVy = -driftVy; }
 
-      // --- Smooth crosshair drift (hand shake simulation) ---
-      // Drift is an offset from the center point — it always wanders back
-      driftVx += (Math.random() - 0.5) * DRIFT_ACCEL * 2;
-      driftVy += (Math.random() - 0.5) * DRIFT_ACCEL * 2;
-      // Spring force pulls drift back toward center (0,0 offset)
-      driftVx -= driftOx * 0.005;
-      driftVy -= driftOy * 0.005;
-      // Clamp velocity — stress increases max speed
-      const driftMaxSpeed = DRIFT_MAX_SPEED * (1 + breathStress * 2.0);
-      const speed = Math.sqrt(driftVx * driftVx + driftVy * driftVy);
-      if (speed > driftMaxSpeed) {
-        driftVx = (driftVx / speed) * driftMaxSpeed;
-        driftVy = (driftVy / speed) * driftMaxSpeed;
-      }
-      // Light drag to prevent runaway
-      driftVx *= 0.95;
-      driftVy *= 0.95;
-
-      // Heartbeat pulse — sharp upward kick then decay, like a real pulse
-      heartPhase += dt;
-
-      // Advance ECG chart buffer at constant sample rate
-      ecgAccumMs += dt;
-      const ecgSampleInterval = ECG_CHART_TIMESPAN / ECG_CHART_WIDTH; // ms per pixel
-      while (ecgAccumMs >= ecgSampleInterval) {
-        ecgAccumMs -= ecgSampleInterval;
-        ecgBeatPhase += ecgSampleInterval / (60000 / heartBPM);
-        ecgBeatPhase -= Math.floor(ecgBeatPhase); // wrap to 0..1
-        ecgHistory[ecgHistoryHead] = heartbeatWaveform(ecgBeatPhase);
-        ecgHistoryHead = (ecgHistoryHead + 1) % ECG_CHART_WIDTH;
-      }
-      const currentHeartPeriod = 60000 / heartBPM;
-      const beatPos = (heartPhase % currentHeartPeriod) / currentHeartPeriod; // 0..1 within beat
-      // Double-bump waveform (like a real heartbeat: systole + dicrotic notch)
-      let pulse = 0;
-      if (beatPos < 0.08) {
-        pulse = Math.sin(beatPos / 0.08 * Math.PI);
-      } else if (beatPos >= 0.15 && beatPos < 0.22) {
-        pulse = 0.4 * Math.sin((beatPos - 0.15) / 0.07 * Math.PI);
-      }
-      // Stress increases heart amplitude
-      const heartAmp = HEART_AMPLITUDE * (1 + breathStress * 0.8);
-      const heartDy = -pulse * heartAmp;
-
-      // Update drift offset (drift + heartbeat)
-      driftOx += driftVx;
-      driftOy += driftVy + heartDy;
-
-      // Compute actual sight position (drift + breathing displacement)
-      let sightX = cx + driftOx + breathDx;
-      let sightY = cy + driftOy + breathDy;
-
-      // Clamp sight to boundaries (bounce drift back)
-      if (sightX >= RG) { driftOx = RG - 1 - cx; driftVx = -Math.abs(driftVx); sightX = RG - 1; }
-      if (sightX <= LG) { driftOx = LG + 1 - cx; driftVx = Math.abs(driftVx); sightX = LG + 1; }
-      if (sightY >= OG) { driftOy = OG - 1 - cy; driftVy = -Math.abs(driftVy); sightY = OG - 1; }
-      if (sightY <= BG) { driftOy = BG + 1 - cy; driftVy = Math.abs(driftVy); sightY = BG + 1; }
-
-      // Muzzle flash decay
-      if (flashAlpha > 0) {
+    // Flash decay
+    if (flashAlpha > 0) {
         flashAlpha -= dt / 100;
         if (flashAlpha < 0) flashAlpha = 0;
-      }
+    }
 
-      drawScorecard();
-      if (state === 'shooting') {
-        drawCrosshair(sightX, sightY);
-      }
-      updateTouchControlsVisibility();
-
-      // Muzzle flash effect
-      if (flashAlpha > 0) {
-        // Radial gradient flash at shot position
-        const grad = ctx.createRadialGradient(flashX, flashY, 0, flashX, flashY, 60);
-        grad.addColorStop(0, `rgba(255, 255, 255, ${flashAlpha})`);
-        grad.addColorStop(0.3, `rgba(255, 255, 100, ${flashAlpha * 0.7})`);
-        grad.addColorStop(0.7, `rgba(255, 160, 0, ${flashAlpha * 0.3})`);
-        grad.addColorStop(1, 'rgba(255, 160, 0, 0)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(flashX - 60, flashY - 60, 120, 120);
-
-        // Subtle full-screen white overlay
-        ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha * 0.15})`;
-        ctx.fillRect(0, 0, 640, 480);
-      }
-      break;
-
-    case 'help':
-      drawScorecard();
-      drawHelp();
-      break;
-
-    case 'results':
-      drawScorecard();
-      drawResults();
-      break;
-
-    case 'scorecard':
-      updateScorecard(timestamp);
-      drawScorecard();
-      // Draw countdown
-      ctx.fillStyle = 'rgba(0, 0, 100, 0.9)';
-      ctx.fillRect(290, 400, 60, 35);
-      ctx.fillStyle = '#fff';
-      ctx.font = '22px serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(String(scorecardCountdown), 320, 425);
-      ctx.textAlign = 'left';
-      break;
-  }
-
-  requestAnimationFrame(gameLoop);
+    // ECG sampling
+    if (ecgLastSampleTime === 0) ecgLastSampleTime = now;
+    while (now - ecgLastSampleTime >= 10) {
+        ecgLastSampleTime += 10;
+        const sampleInterval = 10;
+        const ecgPeriod = 60000 / heartBPM;
+        ecgBeatPhase += sampleInterval / ecgPeriod;
+        if (ecgBeatPhase >= 1) ecgBeatPhase -= 1;
+        ecgBuffer[ecgWriteIdx] = heartbeatWaveform(ecgBeatPhase);
+        ecgWriteIdx = (ecgWriteIdx + 1) % 200;
+    }
 }
 
-function updateIntro(timestamp) {
-  if (!introTimer) introTimer = timestamp;
-  const elapsed = timestamp - introTimer;
+// ===== RENDER =====
+function render(now) {
+    ctx.clearRect(0, 0, W, H);
 
-  if (introStep === 0 && elapsed > 1500) {
-    introStep = 1;
-    playFire();
-  }
-  if (introStep === 1 && elapsed > 2500) {
-    introStep = 2;
-    playFire();
-  }
-  if (introStep === 2 && elapsed > 3500) {
-    introStep = 3;
-    playFire();
-  }
+    if (gameState === 'intro') {
+        drawIntro(now);
+    } else if (gameState === 'shooting' || gameState === 'help') {
+        drawScorecard();
+        const sx = cx + driftOx + breathDx;
+        const sy = cy + driftOy + breathDy;
+        drawCrosshair(sx, sy);
+        drawMuzzleFlash();
+        drawECG();
+        drawBreathBar();
+        if (gameState === 'help') drawHelp();
+    } else if (gameState === 'results') {
+        drawScorecard();
+        drawResults();
+    } else if (gameState === 'scorecard') {
+        drawScorecard();
+        drawScorecardCountdown(now);
+    }
 
-  if (elapsed > 5500) {
-    state = 'shooting';
-    introTimer = 0;
-    introStep = 0;
-  }
+    // Update touch control visuals
+    updateTouchVisuals();
 }
 
-function updateScorecard(timestamp) {
-  const elapsed = timestamp - scorecardTimer;
-  const newCountdown = 9 - Math.floor(elapsed / 1000);
-  if (newCountdown !== scorecardCountdown && newCountdown >= 0) {
-    scorecardCountdown = newCountdown;
-  }
-  if (newCountdown < 0) {
-    state = 'results';
-  }
+function drawIntro(now) {
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = 'center';
+
+    ctx.fillStyle = '#0a0'; ctx.font = '22px serif';
+    ctx.fillText('SOUTH AFRICAN', 320, 75);
+
+    ctx.fillStyle = '#ff0'; ctx.font = '24px serif';
+    ctx.fillText('NATIONAL', 320, 110);
+
+    ctx.fillStyle = '#a00'; ctx.font = 'bold 30px serif';
+    ctx.fillText('BISLEY SHOOTING 1995', 320, 160);
+
+    ctx.fillStyle = '#00a'; ctx.font = '22px serif';
+    ctx.fillText('(0.22" CALIBRE)', 320, 195);
+
+    ctx.fillStyle = '#888'; ctx.font = '12px sans-serif';
+    ctx.fillText('Press [6] for Help | Press any key to start', 320, 450);
+
+    // Demo targets at y=275
+    const demoX = [170, 320, 470];
+    for (const dx of demoX) {
+        ctx.beginPath(); ctx.arc(dx, 275, 50, 0, Math.PI * 2);
+        ctx.fillStyle = '#808000'; ctx.fill();
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+        for (const r of [5, 15, 25, 35]) {
+            ctx.beginPath(); ctx.arc(dx, 275, r, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    }
+
+    // Demo shots
+    const elapsed = now - introStartTime;
+    const demoShotDefs = [
+        { time: 1500, x: 340, y: 255 },
+        { time: 2500, x: 320, y: 260 },
+        { time: 3500, x: 320, y: 275 }
+    ];
+    for (let i = 0; i < 3; i++) {
+        if (elapsed >= demoShotDefs[i].time) {
+            if (!demoShotsFired[i]) {
+                demoShotsFired[i] = true;
+                demoShots.push({ x: demoShotDefs[i].x, y: demoShotDefs[i].y });
+                playFireSound();
+            }
+        }
+    }
+    ctx.fillStyle = '#a00';
+    for (const s of demoShots) {
+        ctx.beginPath(); ctx.arc(s.x, s.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Auto-advance
+    if (elapsed >= 5500) {
+        resetGame();
+    }
 }
 
-// --- Fullscreen ---
-const gameContainer = document.getElementById('game-container');
+function drawHelp() {
+    ctx.fillStyle = 'rgba(0, 0, 100, 0.95)';
+    ctx.fillRect(130, 80, 380, 374);
 
-function toggleFullscreen() {
-  if (!document.fullscreenElement) {
-    gameContainer.requestFullscreen().catch(() => {});
-  } else {
-    document.exitFullscreen();
-  }
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#0a0'; ctx.font = '12px monospace';
+    ctx.fillText('HELP - SA NATIONAL BISLEY SHOOTING .22', 145, 105);
+
+    ctx.fillStyle = '#ff0'; ctx.font = '12px monospace';
+    ctx.fillText('KEYS', 145, 130);
+
+    const arrowLines = [
+        'UP    = [UP ARROW]',
+        'DOWN  = [DOWN ARROW]',
+        'LEFT  = [LEFT ARROW]',
+        'RIGHT = [RIGHT ARROW]'
+    ];
+    for (let i = 0; i < 4; i++) {
+        ctx.fillText(arrowLines[i], 145, 150 + i * 14);
+    }
+
+    const wasdLines = [
+        'UP (BIG)    = [W]',
+        'DOWN (BIG)  = [S]',
+        'LEFT (BIG)  = [A]',
+        'RIGHT (BIG) = [D]'
+    ];
+    for (let i = 0; i < 4; i++) {
+        ctx.fillText(wasdLines[i], 145, 206 + i * 14);
+    }
+
+    ctx.fillText('SHOOT = [ENTER / SPACE]', 145, 262);
+    ctx.fillText('HOLD BREATH = [SHIFT]', 145, 276);
+    ctx.fillText('EXIT = [ESC]', 145, 290);
+
+    ctx.fillStyle = '#fff'; ctx.font = '12px monospace';
+    ctx.fillText('FUNCTIONS', 145, 310);
+
+    const funcLines = [
+        '[1] ENTER NAME',
+        '[2] ENTER TEAM',
+        '[3] ENTER COMPETITION',
+        '[5] RESTART',
+        '[6] HELP',
+        '[F11] FULLSCREEN'
+    ];
+    for (let i = 0; i < funcLines.length; i++) {
+        ctx.fillText(funcLines[i], 145, 330 + i * 14);
+    }
+
+    ctx.fillStyle = '#888'; ctx.font = '11px monospace';
+    ctx.fillText('Press any key to close', 145, 330 + funcLines.length * 14 + 20);
 }
 
-function updateCanvasScale() {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const aspect = 640 / 480;
-  let w, h;
-  if (vw / vh > aspect) { h = vh; w = h * aspect; }
-  else                   { w = vw; h = w / aspect; }
-  canvas.style.width  = w + 'px';
-  canvas.style.height = h + 'px';
-  cssScale = w / 640;
+function drawResults() {
+    ctx.fillStyle = 'rgba(0, 0, 100, 0.95)';
+    ctx.fillRect(130, 80, 380, 340);
 
-  if (document.fullscreenElement) gameContainer.classList.add('fullscreen');
-  else                            gameContainer.classList.remove('fullscreen');
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff'; ctx.font = '22px serif';
+    ctx.fillText('YOUR ROUNDS ARE DONE!', 320, 130);
 
-  // Position touch controls in margins
-  if (isTouchDevice) {
-    const marginW = (vw - w) / 2;
-    const canvasLeft = (vw - w) / 2;
-    const narrow = marginW < 80;
-    gameContainer.classList.toggle('narrow-margins', narrow);
+    ctx.fillStyle = '#0a0'; ctx.font = '22px serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('SCORE', 300, 175);
 
-    // Left zone: covers left margin (or overlaps canvas edge if narrow)
-    const zoneW = narrow ? 80 : marginW;
-    touchLeft.style.width = zoneW + 'px';
-    touchLeft.style.left = (narrow ? canvasLeft - 10 : 0) + 'px';
+    ctx.fillStyle = '#ff0'; ctx.font = 'bold 64px serif';
+    ctx.fillText('' + score, score >= 100 ? 220 : 260, 260);
 
-    // Position joystick hint in left zone at ~65% height
-    joystickHint.style.left = (zoneW / 2 - 138) + 'px';
-    joystickHint.style.top  = (vh * 0.65 - 138) + 'px';
+    ctx.font = 'bold 48px serif';
+    ctx.fillText('%', 400, 250);
 
-    // Right zone: covers right margin
-    touchRight.style.width = zoneW + 'px';
-    touchRight.style.right = (narrow ? canvasLeft - 10 : 0) + 'px';
-
-    // Position fire button at ~75% height, centered in right zone
-    fireBtnEl.style.left = (zoneW / 2 - 156) + 'px';
-    fireBtnEl.style.top  = (vh * 0.75 - 156) + 'px';
-
-    // Position breath button at ~35% height, centered in left zone
-    breathBtnEl.style.left = (zoneW / 2 - 132) + 'px';
-    breathBtnEl.style.top  = (vh * 0.35 - 132) + 'px';
-  }
+    ctx.fillStyle = '#a00'; ctx.font = '16px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('OPTIONS', 320, 300);
+    ctx.fillText('[9]   VIEW SCORECARD (10s)', 320, 330);
+    ctx.fillText('[5]   SHOOT AGAIN', 320, 355);
+    ctx.fillText('[ESC] EXIT', 320, 380);
 }
 
-document.addEventListener('fullscreenchange', updateCanvasScale);
-window.addEventListener('resize', updateCanvasScale);
-updateCanvasScale(); // run immediately
+function drawScorecardCountdown(now) {
+    if (now - scorecardLastTick >= 1000) {
+        scorecardCountdown--;
+        scorecardLastTick = now;
+    }
+    if (scorecardCountdown < 0) {
+        gameState = 'results';
+        return;
+    }
+    ctx.fillStyle = 'rgba(0, 0, 100, 0.9)';
+    ctx.fillRect(290, 400, 60, 35);
+    ctx.fillStyle = '#fff'; ctx.font = '22px serif'; ctx.textAlign = 'center';
+    ctx.fillText('' + scorecardCountdown, 320, 425);
+}
 
-// --- Start ---
-canvas.setAttribute('tabindex', '0');
-canvas.focus();
-requestAnimationFrame(gameLoop);
+function updateTouchVisuals() {
+    if (!isTouchDevice) return;
+    const show = gameState === 'shooting';
+    if (show) {
+        container.classList.add('touch-active');
+    } else {
+        container.classList.remove('touch-active');
+    }
+    if (show && window._joyCanvas) {
+        drawJoystick(window._joyCanvas, joystickActive);
+    }
+}
+
+// ===== GAME LOOP =====
+function gameLoop(timestamp) {
+    if (!lastTime) lastTime = timestamp;
+    const dt = timestamp - lastTime;
+    lastTime = timestamp;
+
+    if (gameState === 'shooting' || gameState === 'help') {
+        updatePhysics(dt, timestamp);
+    }
+
+    // Input overlays: drift continues
+    if (currentInputType && gameState === 'shooting') {
+        // Physics already updated above when gameState is 'shooting'
+    }
+
+    render(timestamp);
+    requestAnimationFrame(gameLoop);
+}
+
+// ===== INIT =====
+function init() {
+    updateCanvasScale();
+    window.addEventListener('resize', updateCanvasScale);
+    setupTouchControls();
+    gameState = 'intro';
+    introStartTime = performance.now();
+    demoShots = [];
+    demoShotsFired = [false, false, false];
+    requestAnimationFrame(gameLoop);
+}
+
+init();
 </script>
 </body>
 </html>

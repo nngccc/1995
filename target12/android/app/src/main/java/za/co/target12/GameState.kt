@@ -1,227 +1,106 @@
 package za.co.target12
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
-import za.co.target12.GameConstants.BG
-import za.co.target12.GameConstants.INTRO_AUTO_ADVANCE
-import za.co.target12.GameConstants.JOYSTICK_MAX_SPEED
-import za.co.target12.GameConstants.JOYSTICK_RADIUS
-import za.co.target12.GameConstants.LG
-import za.co.target12.GameConstants.OG
-import za.co.target12.GameConstants.RG
-import za.co.target12.GameConstants.RONTES
-import za.co.target12.GameConstants.SCORECARD_COUNTDOWN_START
-import za.co.target12.audio.GameAudio
-import za.co.target12.input.TouchInputState
-import za.co.target12.physics.BreathingPhysics
-import za.co.target12.physics.DriftPhysics
-import za.co.target12.physics.HeartbeatPhysics
-import za.co.target12.scoring.ScoringEngine
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
-enum class GameScreen {
+enum class GamePhase {
     INTRO, SHOOTING, HELP, INPUT_NAME, INPUT_TEAM, INPUT_COMP, RESULTS, SCORECARD
 }
 
+data class Shot(val x: Float, val y: Float)
+
 class GameState {
-    // Compose recomposition trigger
-    val frameCounter = mutableLongStateOf(0L)
+    var phase by mutableStateOf(GamePhase.INTRO)
 
-    var screen = GameScreen.INTRO
-    var stateEntryTime = 0L
+    // Center point (player-controlled)
+    var cx by mutableFloatStateOf(GameConstants.INITIAL_CX)
+    var cy by mutableFloatStateOf(GameConstants.INITIAL_CY)
 
-    // Player data (persists across restarts)
-    var naam = ""
-    var span = ""
-    var komp = ""
+    // Drift
+    var driftOx = 0f
+    var driftOy = 0f
+    var driftVx = 0f
+    var driftVy = 0f
 
-    // Scoring
-    var telling = 0       // score
-    var aantal = 1        // current shot (1-based)
-    val shotX = FloatArray(RONTES + 1)
-    val shotY = FloatArray(RONTES + 1)
+    // Heartbeat
+    var heartBPM = GameConstants.HEART_BPM_DEFAULT
+    var heartBPMTarget = GameConstants.HEART_BPM_DEFAULT
+    var heartPhase = 0f   // ms accumulated
+    var heartDy = 0f
 
-    // Aim center
-    var cx = 320f
-    var cy = 220f
+    // Breathing
+    var breathPhase = 0f  // ms accumulated
+    var breathDx = 0f
+    var breathDy = 0f
+    var breathHolding = false
+    var breathHoldStart = 0L
+    var breathHoldPhase = 0f
+    var breathHoldStartDx = 0f
+    var breathHoldStartDy = 0f
+    var breathHoldRestDx = 0f
+    var breathHoldRestDy = 0f
+    var breathHoldQuality = 0f
+    var breathStress = 0f
+    var breathRecovering = false
+    var breathRecoverStart = 0L
 
-    // Physics
-    val drift = DriftPhysics()
-    val heartbeat = HeartbeatPhysics()
-    val breathing = BreathingPhysics()
+    // ECG
+    val ecgBuffer = FloatArray(GameConstants.ECG_BUFFER_SIZE)
+    var ecgIndex = 0
+    var ecgBeatPhase = 0f
+    var ecgAccumMs = 0f
 
-    // Touch
-    val touch = TouchInputState()
-    var currentScaleInfo: za.co.target12.ui.rendering.ScaleInfo? = null
+    // Shots
+    val shots = mutableStateListOf<Shot>()
+    var scoringShots by mutableIntStateOf(0)
+    var totalShots by mutableIntStateOf(0)
+    var score by mutableIntStateOf(0)
 
-    // Audio
-    val audio = GameAudio()
-
-    // Muzzle flash
-    var flashAlpha = 0f
+    // Flash
+    var flashAlpha by mutableFloatStateOf(0f)
     var flashX = 0f
     var flashY = 0f
 
-    // Intro animation
-    var introStep = 0
-    var introTimer = 0L
+    // Player data (persists across reset)
+    var playerName by mutableStateOf("")
+    var playerTeam by mutableStateOf("")
+    var playerComp by mutableStateOf("")
+
+    // Intro
+    var introStartTime = 0L
+    var demoShotsFired = 0
+    val demoShots = mutableStateListOf<Shot>()
 
     // Scorecard countdown
-    var scorecardCountdown = SCORECARD_COUNTDOWN_START
-    var scorecardTimer = 0L
+    var scorecardCountdown by mutableIntStateOf(GameConstants.SCORECARD_COUNTDOWN)
+    var scorecardLastTick = 0L
 
-    // Sight position (computed each frame)
-    var sightX = 320f
-    var sightY = 220f
+    // Frame timing
+    var lastFrameTime = 0L
 
-    fun initAudio() {
-        audio.init()
-    }
-
-    fun releaseAudio() {
-        audio.release()
-    }
-
-    fun update(dt: Float, now: Long) {
-        when (screen) {
-            GameScreen.INTRO -> updateIntro(now)
-            GameScreen.SHOOTING, GameScreen.INPUT_NAME, GameScreen.INPUT_TEAM, GameScreen.INPUT_COMP -> updateShooting(dt, now)
-            GameScreen.SCORECARD -> updateScorecard(now)
-            else -> {}
-        }
-
-        // Flash decay
-        if (flashAlpha > 0f) {
-            flashAlpha -= dt / 100f
-            if (flashAlpha < 0f) flashAlpha = 0f
-        }
-
-        frameCounter.longValue++
-    }
-
-    private fun updateIntro(now: Long) {
-        val elapsed = now - introTimer
-        introStep = when {
-            elapsed >= 3500L -> 3
-            elapsed >= 2500L -> 2
-            elapsed >= 1500L -> 1
-            else -> 0
-        }
-        // Play fire sounds at demo shot times
-        for (i in GameConstants.DEMO_SHOTS.indices) {
-            val shotTime = GameConstants.DEMO_SHOTS[i].first
-            val prevElapsed = elapsed - 16 // approximate one frame ago
-            if (prevElapsed < shotTime && elapsed >= shotTime) {
-                audio.playFire()
-            }
-        }
-        if (elapsed >= INTRO_AUTO_ADVANCE) {
-            resetGame()
-            screen = GameScreen.SHOOTING
-        }
-    }
-
-    private fun updateShooting(dt: Float, now: Long) {
-        // Process touch events
-        if (touch.fireJustPressed && screen == GameScreen.SHOOTING) {
-            fire(now)
-        }
-        if (touch.breathJustPressed && !breathing.holding) {
-            breathing.startHold(now)
-        }
-        if (touch.breathJustReleased && breathing.holding) {
-            breathing.releaseHold(now)
-        }
-        touch.consumeEvents()
-
-        // Apply joystick
-        if (touch.joystickPointerId != null) {
-            cx += (touch.joystickDx / JOYSTICK_RADIUS) * JOYSTICK_MAX_SPEED
-            cy += (touch.joystickDy / JOYSTICK_RADIUS) * JOYSTICK_MAX_SPEED
-            clampCenter()
-        }
-
-        // Update physics
-        breathing.update(dt, now, heartbeat)
-        val heartDy = heartbeat.update(dt, breathing.stress)
-        drift.update(breathing.stress, heartDy)
-
-        // Compute sight position
-        sightX = cx + drift.ox + breathing.currentDx
-        sightY = cy + drift.oy + breathing.currentDy
-
-        // Bounce drift if sight out of bounds
-        if (drift.bounceIfNeeded(sightX, sightY, BG, OG, LG, RG)) {
-            audio.playBump()
-        }
-
-        // Recompute after bounce
-        sightX = cx + drift.ox + breathing.currentDx
-        sightY = cy + drift.oy + breathing.currentDy
-    }
-
-    private fun updateScorecard(now: Long) {
-        val elapsed = now - scorecardTimer
-        scorecardCountdown = SCORECARD_COUNTDOWN_START - (elapsed / 1000).toInt()
-        if (scorecardCountdown < 0) {
-            screen = GameScreen.RESULTS
-        }
-    }
-
-    fun fire(@Suppress("UNUSED_PARAMETER") now: Long) {
-        if (aantal > RONTES) return
-        shotX[aantal] = sightX
-        shotY[aantal] = sightY
-        audio.playFire()
-        flashAlpha = 1f
-        flashX = sightX
-        flashY = sightY
-        aantal++
-        telling = ScoringEngine.calculateScore(shotX, shotY, aantal - 1)
-        if (aantal > RONTES || ScoringEngine.countScoringShots(shotX, shotY, aantal) >= 10) {
-            screen = GameScreen.RESULTS
-        }
-    }
-
-    fun clampCenter(): Boolean {
-        var bounced = false
-        if (cx >= RG) { cx = RG - 1; bounced = true }
-        if (cx <= LG) { cx = LG + 1; bounced = true }
-        if (cy >= OG) { cy = OG - 1; bounced = true }
-        if (cy <= BG) { cy = BG + 1; bounced = true }
-        if (bounced) audio.playBoundary()
-        return bounced
-    }
+    val sightX: Float get() = cx + driftOx + breathDx
+    val sightY: Float get() = cy + driftOy + breathDy
 
     fun resetGame() {
-        aantal = 1
-        telling = 0
-        cx = 320f
-        cy = 220f
-        drift.reset()
-        breathing.reset()
-        heartbeat.resetToResting()
+        phase = GamePhase.SHOOTING
+        cx = GameConstants.INITIAL_CX
+        cy = GameConstants.INITIAL_CY
+        driftOx = 0f; driftOy = 0f; driftVx = 0f; driftVy = 0f
+        heartBPM = GameConstants.HEART_BPM_DEFAULT
+        heartBPMTarget = GameConstants.HEART_BPM_DEFAULT
+        heartPhase = 0f; heartDy = 0f
+        breathPhase = 0f; breathDx = 0f; breathDy = 0f
+        breathHolding = false; breathStress = 0f
+        breathRecovering = false
+        breathHoldQuality = 0f
+        ecgBuffer.fill(0f); ecgIndex = 0; ecgBeatPhase = 0f; ecgAccumMs = 0f
+        shots.clear()
+        scoringShots = 0; totalShots = 0; score = 0
         flashAlpha = 0f
-        for (i in shotX.indices) { shotX[i] = 0f; shotY[i] = 0f }
-    }
-
-    fun startIntro(now: Long) {
-        screen = GameScreen.INTRO
-        introStep = 0
-        introTimer = now
-    }
-
-    fun viewScorecard(now: Long) {
-        screen = GameScreen.SCORECARD
-        scorecardCountdown = SCORECARD_COUNTDOWN_START
-        scorecardTimer = now
-    }
-
-    fun shootAgain() {
-        resetGame()
-        screen = GameScreen.SHOOTING
-    }
-
-    fun exitToIntro(now: Long) {
-        resetGame()
-        startIntro(now)
     }
 }

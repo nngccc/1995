@@ -2,14 +2,7 @@
 
 ## Overview
 
-Recreation of a South African National Bisley shooting competition simulator (0.22" calibre), originally written in Turbo Pascal 7.0 by Nico Gerber (1996). The player aims a crosshair on a scorecard of 11 targets, fighting hand shake, breathing rhythm, and heartbeat to place accurate shots. This spec is intended to be complete enough to reimplement the game on any platform without consulting the source code.
-
-## Origin
-
-- **Original**: `TARGET12.PAS` — Turbo Pascal 7.0, BGI graphics, 640×480
-- **Author**: Nico Gerber, Standard 9, 1996
-- **Organization**: S.A.N.S.S.U. (Suid-Afrikaanse Nasionale Skietskyfskiet-Unie)
-- **Competition**: National Bisley target shooting, 0.22" calibre rifles
+A South African National Bisley shooting competition simulator (0.22" calibre). The player aims a crosshair on a scorecard of 11 targets, fighting hand shake, breathing rhythm, and heartbeat to place accurate shots. This spec is intended to be complete enough to reimplement the game on any platform.
 
 ## Language
 
@@ -59,7 +52,6 @@ Black background, centered text:
 | "NATIONAL" | `#ff0` | 24px serif | 110 |
 | "BISLEY SHOOTING 1995" | `#a00` | bold 30px serif | 160 |
 | "(0.22\" CALIBRE)" | `#00a` | 22px serif | 195 |
-| "PROGRAMMING - NICO GERBER" | `#fff` | 14px sans-serif | 420 |
 | "Press [6] for Help \| Press any key to start" | `#888` | 12px sans-serif | 450 |
 
 All text is horizontally centered at x=320.
@@ -495,20 +487,20 @@ For each of the 10 scoring targets (indices 0–4, 6–10):
 
 ### Touch Controls
 
-Displayed only on coarse-pointer (touch) devices, only during `shooting` state. Controls are **HTML overlay `<div>` elements** positioned in the viewport margins (the black bars left and right of the 4:3 canvas), not drawn on the canvas.
-
-#### Layout
-
-On landscape mobile screens wider than 4:3, the CSS-scaled canvas leaves horizontal margins. Touch controls live in these margins as children of `#game-container`, siblings of the canvas:
+Displayed only on touch devices, only during `shooting` state. Controls are positioned in the viewport margins (the black bars left and right of the 4:3 canvas).
 
 - **Left margin**: breath-hold button (upper) and joystick activation zone (lower)
 - **Right margin**: fire button only
 
-`updateCanvasScale()` computes margin widths and positions the control elements accordingly. When margin < 80px (narrow viewport), `#game-container` gets a `.narrow-margins` class — controls overlay the canvas edges with semi-transparency instead.
+**Touch event routing**: Touch/pointer events in the control zones (left margin, right margin) must be consumed by those controls and must NOT propagate to the game canvas. Only touches that land on the canvas area itself (between the margins) should trigger game actions like firing a shot. This prevents double-firing and unintended state transitions from control interactions. On non-shooting states (intro, help, results, scorecard), taps on the canvas advance/dismiss as described in those states' sections.
 
-#### Visibility
+#### Layout (Web)
 
-Controls are hidden via CSS (`display: none`) when not in `shooting` state. JavaScript toggles the `.touch-active` class on each control's container based on game state.
+On landscape mobile screens wider than 4:3, the CSS-scaled canvas leaves horizontal margins. Touch controls are **HTML overlay `<div>` elements** in these margins, children of `#game-container`, siblings of the canvas. `updateCanvasScale()` computes margin widths and positions the control elements accordingly. When margin < 80px (narrow viewport), `#game-container` gets a `.narrow-margins` class — controls overlay the canvas edges with semi-transparency instead. Controls are hidden via CSS (`display: none`) when not in `shooting` state; JavaScript toggles `.touch-active` class based on game state.
+
+#### Layout (Android)
+
+Touch zones are defined by screen-space coordinate ranges: left of canvas offset = left margin, right of canvas offset + scaled width = right margin. A single unified pointer event handler hit-tests each touch against these zones before dispatching. Touches in margin zones are routed to the corresponding control; touches in the canvas area are routed to game actions. Controls are rendered on the canvas itself (not as separate Compose elements) during the `shooting` phase only.
 
 #### Joystick (left margin)
 
@@ -624,29 +616,8 @@ The app icon represents the game's core gameplay: a crosshair sight on a target.
 
 ---
 
-## Known Differences from Pascal Original
-
-1. **No CGA/EGA monitor selection** — fixed modern color palette
-2. **Crosshair rendering** — drawn procedurally each frame instead of GETIMAGE/PUTIMAGE sprite
-3. **Non-blocking architecture** — state machine with `requestAnimationFrame` replaces Pascal's blocking READKEY/DELAY loops
-4. **Heartbeat effect** — new feature not in original; adds realistic sight pulse at 60 BPM
-5. **ECG chart** — new feature; visual heartbeat timing aid
-6. **Smooth drift** — velocity-based with spring return, replacing discrete ±5px jumps
-7. **Center point / drift separation** — keys move center, drift wanders around it (original moved position directly)
-8. **Round completion** — ends at 10 scoring shots OR 13 total (original: always 13)
-9. **Live score** — updates after each shot (original: only on request or round end)
-10. **Space bar** — added as alternate fire key alongside Enter
-11. **Gunshot sound** — procedural crack+boom synthesis replacing simple oscillator tones
-12. **Muzzle flash** — visual flash effect on firing (not in original)
-13. **Fullscreen mode** — F11 toggle with aspect-ratio-preserving scaling
-14. **Breathing rhythm** — respiratory sway cycle with hold-breath mechanic (Shift key)
-15. **Touch controls** — joystick, fire button, and breath-hold button for mobile devices
-
----
-
 ## Future Considerations
 
-- Drawrose splash screen ("LCC PRODUKSIES" with decorative rose graphic, typewriter effect — present in original Pascal, not yet implemented)
 - Difficulty levels (adjust drift intensity, heartbeat amplitude, BPM)
 - High score persistence (localStorage)
 - Multiplayer / score comparison
