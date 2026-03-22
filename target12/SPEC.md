@@ -500,7 +500,7 @@ On landscape mobile screens wider than 4:3, the CSS-scaled canvas leaves horizon
 
 #### Layout (Android)
 
-Touch zones are defined by screen-space coordinate ranges: left of canvas offset = left margin, right of canvas offset + scaled width = right margin. A single unified pointer event handler hit-tests each touch against these zones before dispatching. Touches in margin zones are routed to the corresponding control; touches in the canvas area are routed to game actions. Controls are rendered on the canvas itself (not as separate Compose elements) during the `shooting` phase only.
+Touch zones are defined by screen-space coordinate ranges: left of canvas offset = left margin, right of canvas offset + scaled width = right margin. A single unified pointer event handler hit-tests each touch against these zones before dispatching. Touches in margin zones are routed to the corresponding control; touches in the canvas area are routed to game actions. Controls are rendered on the canvas itself (not as separate Compose elements) during the `shooting` phase only. All control sizes (radii, stroke widths, font sizes) specified in the sections below are in screen pixels and apply to Android identically — do not substitute smaller values.
 
 #### Joystick (left margin)
 
