@@ -177,7 +177,7 @@ fun GameScreen() {
                                             } else if (scaleInfo.isRightMargin(x)) {
                                                 // Right margin: upper = breath toggle, lower = fire
                                                 val screenH = scaleInfo.scaledHeight + scaleInfo.offsetY * 2f
-                                                if (y < screenH * 0.625f) {
+                                                if (y < screenH * 0.575f) {
                                                     // Breath hold toggle (on initial press only)
                                                     if (change.previousPressed != change.pressed) {
                                                         touchState.breathPressed = !touchState.breathPressed

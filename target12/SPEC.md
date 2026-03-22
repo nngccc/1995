@@ -523,7 +523,7 @@ Touch zones are defined by screen-space coordinate ranges: left of canvas offset
 
 #### Breath-Hold Button (right margin, upper)
 
-- **Position**: centered horizontally in right margin, at ~50% viewport height (above fire button)
+- **Position**: centered horizontally in right margin, at ~40% viewport height (above fire button)
 - **Radius**: 132px (screen pixels)
 - **Idle**: fill `#060` α=0.40, stroke `#0f0` 6px α=0.55, label "HOLD / BREATH" white bold 33px mono α=0.85 (two lines: "HOLD" and "BREATH")
 - **Active** (breath held): fill `#0f0` α=0.75, stroke `#0f0` 6px α=0.90, label α=1.0

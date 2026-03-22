@@ -29,7 +29,7 @@ object TouchControlsRenderer {
         val marginW = screenW - rightStart
         if (marginW < 10f) return
         val cx = rightStart + marginW / 2f
-        val cy = screenH * 0.50f
+        val cy = screenH * 0.40f
         val r = 132f.coerceAtMost(marginW / 2f - 4f)
         val pressed = ts.breathPressed
 
