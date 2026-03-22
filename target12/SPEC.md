@@ -313,7 +313,7 @@ Inhale lowers the sight (+dy = down), exhale raises it back. The natural pause a
 
 ### Breath Hold
 
-Activated by holding Shift (keyboard) or the breath-hold touch button.
+Activated by holding Shift (keyboard) or toggling the breath-hold touch button.
 
 **On press**:
 1. Record `breathHoldPhase` = current position in breath cycle (0..1)
@@ -340,6 +340,9 @@ Activated by holding Shift (keyboard) or the breath-hold touch button.
 - **Heart rate target** ramps up with delayed onset:
   - `hrStress = max(0, (breathStress − 0.25) / 0.75)` — no HR increase in first ~0.5s past limit
   - `heartBPMTarget = 60 + hrStress × 40` — up to 100 BPM
+
+**Auto-release** (`BREATH_HOLD_AUTO_RELEASE = 10000ms`):
+- If breath is held for more than 10 seconds, breath hold is automatically released (same as manual release). This applies to both keyboard and touch input. On touch, the breath-hold button visual resets to idle state.
 
 ### Breath Release / Recovery
 
@@ -489,8 +492,8 @@ For each of the 10 scoring targets (indices 0–4, 6–10):
 
 Displayed only on touch devices, only during `shooting` state. Controls are positioned in the viewport margins (the black bars left and right of the 4:3 canvas).
 
-- **Left margin**: breath-hold button (upper) and joystick activation zone (lower)
-- **Right margin**: fire button only
+- **Left margin**: joystick activation zone (entire margin)
+- **Right margin**: breath-hold button (upper) and fire button (lower)
 
 **Touch event routing**: Touch/pointer events in the control zones (left margin, right margin) must be consumed by those controls and must NOT propagate to the game canvas. Only touches that land on the canvas area itself (between the margins) should trigger game actions like firing a shot. This prevents double-firing and unintended state transitions from control interactions. On non-shooting states (intro, help, results, scorecard), taps on the canvas advance/dismiss as described in those states' sections.
 
@@ -516,15 +519,15 @@ Touch zones are defined by screen-space coordinate ranges: left of canvas offset
 - **Radius**: 156px (screen pixels)
 - **Idle**: fill `#a00` α=0.40, stroke `#fff` 6px α=0.55, label "FIRE" white bold 39px mono α=0.85
 - **Pressed**: fill `#f55` α=0.75, stroke `#fff` 6px α=0.90, label α=1.0
-- **Behavior**: fires a shot on touch-start (same logic as Enter/Space)
+- **Behavior**: fires a shot on touch-start (same logic as Enter/Space). Firing a shot automatically releases breath hold if active.
 
-#### Breath-Hold Button (left margin, upper)
+#### Breath-Hold Button (right margin, upper)
 
-- **Position**: centered horizontally in left margin, at ~35% viewport height
+- **Position**: centered horizontally in right margin, at ~50% viewport height (above fire button)
 - **Radius**: 132px (screen pixels)
 - **Idle**: fill `#060` α=0.40, stroke `#0f0` 6px α=0.55, label "HOLD / BREATH" white bold 33px mono α=0.85 (two lines: "HOLD" and "BREATH")
-- **Pressed**: fill `#0f0` α=0.75, stroke `#0f0` 6px α=0.90, label α=1.0
-- **Behavior**: activates breath hold on touch-start, releases on touch-end/cancel (same logic as Shift key)
+- **Active** (breath held): fill `#0f0` α=0.75, stroke `#0f0` 6px α=0.90, label α=1.0
+- **Behavior**: toggle — first tap activates breath hold, second tap releases. Visual state reflects whether breath is currently held. Breath hold is also released automatically when firing a shot or after 10 seconds (see auto-release).
 
 #### Multi-touch
 

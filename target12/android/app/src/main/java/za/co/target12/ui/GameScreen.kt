@@ -79,7 +79,7 @@ fun GameScreen() {
                     // Pending fire from touch
                     if (touchState.firePending) {
                         touchState.firePending = false
-                        fireShot(state, currentTimeMs)
+                        fireShot(state, currentTimeMs, touchState)
                     }
 
                     // Breath hold from touch
@@ -92,6 +92,10 @@ fun GameScreen() {
                     // Physics
                     HeartbeatPhysics.update(state, dt)
                     BreathingPhysics.update(state, dt, currentTimeMs)
+                    // Sync touch state if physics auto-released breath hold
+                    if (!state.breathHolding && touchState.breathPressed) {
+                        touchState.breathPressed = false
+                    }
                     DriftPhysics.update(state)
 
                     // Flash decay
@@ -150,42 +154,41 @@ fun GameScreen() {
                                     GamePhase.SHOOTING -> {
                                         if (change.pressed) {
                                             if (scaleInfo.isLeftMargin(x)) {
-                                                // Left margin: upper = breath, lower = joystick
-                                                val screenH = scaleInfo.scaledHeight + scaleInfo.offsetY * 2f
-                                                if (y < screenH * 0.5f) {
-                                                    // Breath hold
-                                                    if (!touchState.breathPressed) {
-                                                        touchState.breathPressed = true
-                                                        touchState.breathPointerId = id
-                                                    }
-                                                } else {
-                                                    // Joystick
-                                                    if (!touchState.joystickActive) {
-                                                        touchState.joystickActive = true
-                                                        touchState.joystickPointerId = id
-                                                        touchState.joystickBaseX = x
-                                                        touchState.joystickBaseY = y
-                                                    }
-                                                    if (touchState.joystickPointerId == id) {
-                                                        touchState.joystickDx = x - touchState.joystickBaseX
-                                                        touchState.joystickDy = y - touchState.joystickBaseY
-                                                        val dist = sqrt(
-                                                            touchState.joystickDx * touchState.joystickDx +
-                                                            touchState.joystickDy * touchState.joystickDy
-                                                        )
-                                                        if (dist > GameConstants.JOYSTICK_RADIUS) {
-                                                            val s = GameConstants.JOYSTICK_RADIUS / dist
-                                                            touchState.joystickDx *= s
-                                                            touchState.joystickDy *= s
-                                                        }
+                                                // Left margin: joystick (entire area)
+                                                if (!touchState.joystickActive) {
+                                                    touchState.joystickActive = true
+                                                    touchState.joystickPointerId = id
+                                                    touchState.joystickBaseX = x
+                                                    touchState.joystickBaseY = y
+                                                }
+                                                if (touchState.joystickPointerId == id) {
+                                                    touchState.joystickDx = x - touchState.joystickBaseX
+                                                    touchState.joystickDy = y - touchState.joystickBaseY
+                                                    val dist = sqrt(
+                                                        touchState.joystickDx * touchState.joystickDx +
+                                                        touchState.joystickDy * touchState.joystickDy
+                                                    )
+                                                    if (dist > GameConstants.JOYSTICK_RADIUS) {
+                                                        val s = GameConstants.JOYSTICK_RADIUS / dist
+                                                        touchState.joystickDx *= s
+                                                        touchState.joystickDy *= s
                                                     }
                                                 }
                                             } else if (scaleInfo.isRightMargin(x)) {
-                                                // Fire button
-                                                if (!touchState.firePressed) {
-                                                    touchState.firePressed = true
-                                                    touchState.firePointerId = id
-                                                    touchState.firePending = true
+                                                // Right margin: upper = breath toggle, lower = fire
+                                                val screenH = scaleInfo.scaledHeight + scaleInfo.offsetY * 2f
+                                                if (y < screenH * 0.625f) {
+                                                    // Breath hold toggle (on initial press only)
+                                                    if (change.previousPressed != change.pressed) {
+                                                        touchState.breathPressed = !touchState.breathPressed
+                                                    }
+                                                } else {
+                                                    // Fire button
+                                                    if (!touchState.firePressed) {
+                                                        touchState.firePressed = true
+                                                        touchState.firePointerId = id
+                                                        touchState.firePending = true
+                                                    }
                                                 }
                                             } else {
                                                 // Canvas area — fire shot on initial press
@@ -197,12 +200,6 @@ fun GameScreen() {
                                             // Released
                                             if (id == touchState.joystickPointerId) touchState.resetJoystick()
                                             if (id == touchState.firePointerId) touchState.releaseFire()
-                                            if (id == touchState.breathPointerId) {
-                                                touchState.releaseBreath()
-                                                if (state.breathHolding) {
-                                                    BreathingPhysics.releaseHold(state, currentTimeMs)
-                                                }
-                                            }
                                         }
                                     }
 
@@ -302,12 +299,17 @@ private fun clampCenter(state: GameState) {
     if (clamped) GameAudio.playBoundarySound()
 }
 
-private fun fireShot(state: GameState, currentTimeMs: Long) {
+private fun fireShot(state: GameState, currentTimeMs: Long, touchState: TouchInputState? = null) {
     if (state.phase != GamePhase.SHOOTING) return
     state.flashX = state.sightX
     state.flashY = state.sightY
     state.flashAlpha = 1.0f
     GameAudio.playFireSound()
+    // Auto-release breath hold on fire
+    if (state.breathHolding) {
+        BreathingPhysics.releaseHold(state, currentTimeMs)
+        touchState?.releaseBreath()
+    }
     if (ScoringEngine.processShot(state)) {
         state.phase = GamePhase.RESULTS
     }

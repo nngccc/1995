@@ -49,6 +49,7 @@ object GameConstants {
     const val BREATH_AMP_Y = 25.0f
     const val BREATH_AMP_X = 4.0f
     const val BREATH_HOLD_MAX = 4000f
+    const val BREATH_HOLD_AUTO_RELEASE = 10000f
     const val BREATH_RECOVERY_TIME = 2000f
     const val BREATH_GASP_DURATION = 400f
 

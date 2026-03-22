@@ -98,6 +98,7 @@ const BREATH_PERIOD = 5000;
 const BREATH_AMPLITUDE_Y = 25.0;
 const BREATH_AMPLITUDE_X = 4.0;
 const BREATH_HOLD_MAX = 4000;
+const BREATH_HOLD_AUTO_RELEASE = 10000;
 const BREATH_RECOVERY_TIME = 2000;
 const JOYSTICK_RADIUS = 180;
 const JOYSTICK_MAX_SPEED = 3;
@@ -392,6 +393,12 @@ function fireShot() {
     flashAlpha = 1.0;
     flashX = sx; flashY = sy;
     playFireSound();
+    // Auto-release breath hold on fire
+    if (breathHolding) {
+        releaseBreathHold();
+        breathButtonPressed = false;
+        if (window._breathBtn) drawBreathBtn(window._breathBtn, false);
+    }
     // Check round end
     if (scoringShots >= 10 || totalShots >= 13) {
         gameState = 'results';
@@ -572,7 +579,7 @@ function setupTouchControls() {
     const breathBtn = document.createElement('canvas');
     breathBtn.width = 280; breathBtn.height = 280;
     breathBtn.style.cssText = 'position:absolute;touch-action:none;';
-    leftZone.appendChild(breathBtn);
+    rightZone.appendChild(breathBtn);
     positionBreathButton(breathBtn);
 
     // Joystick area
@@ -589,25 +596,19 @@ function setupTouchControls() {
     rightZone.appendChild(fireBtn);
     positionFireButton(fireBtn);
 
-    // Breath hold events
+    // Breath hold events (toggle: tap to hold, tap again to release)
     breathBtn.addEventListener('touchstart', (e) => {
         e.preventDefault(); e.stopPropagation();
         ensureAudio();
-        breathButtonPressed = true;
-        startBreathHold();
-        drawBreathBtn(breathBtn, true);
-    }, { passive: false });
-    breathBtn.addEventListener('touchend', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        breathButtonPressed = false;
-        releaseBreathHold();
-        drawBreathBtn(breathBtn, false);
-    }, { passive: false });
-    breathBtn.addEventListener('touchcancel', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        breathButtonPressed = false;
-        releaseBreathHold();
-        drawBreathBtn(breathBtn, false);
+        if (!breathHolding) {
+            breathButtonPressed = true;
+            startBreathHold();
+            drawBreathBtn(breathBtn, true);
+        } else {
+            breathButtonPressed = false;
+            releaseBreathHold();
+            drawBreathBtn(breathBtn, false);
+        }
     }, { passive: false });
 
     // Fire button events
@@ -689,7 +690,7 @@ function setupTouchControls() {
 
 function positionBreathButton(el) {
     el.style.left = '50%';
-    el.style.top = '35%';
+    el.style.top = '50%';
     el.style.transform = 'translate(-50%, -50%)';
 }
 function positionJoystick(el) {
@@ -937,6 +938,12 @@ function updatePhysics(dt, now) {
     // Breathing
     if (breathHolding) {
         const holdElapsed = now - breathHoldStartTime;
+        // Auto-release after 10 seconds
+        if (holdElapsed > BREATH_HOLD_AUTO_RELEASE) {
+            releaseBreathHold();
+            breathButtonPressed = false;
+            if (window._breathBtn) drawBreathBtn(window._breathBtn, false);
+        }
         // Settle phase (first 500ms)
         const settleProgress = Math.min(1, holdElapsed / 500);
         const eased = settleProgress * settleProgress * (3 - 2 * settleProgress);

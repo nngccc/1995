@@ -53,6 +53,12 @@ object BreathingPhysics {
         if (state.breathHolding) {
             val elapsed = (currentTimeMs - state.breathHoldStart).toFloat()
 
+            // Auto-release after 10 seconds
+            if (elapsed > GameConstants.BREATH_HOLD_AUTO_RELEASE) {
+                releaseHold(state, currentTimeMs)
+                return
+            }
+
             // Settle phase (first 500ms)
             val settleProgress = min(1f, elapsed / 500f)
             val eased = settleProgress * settleProgress * (3f - 2f * settleProgress)

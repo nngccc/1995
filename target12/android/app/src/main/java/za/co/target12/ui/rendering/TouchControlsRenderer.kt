@@ -20,15 +20,17 @@ object TouchControlsRenderer {
 
         if (lm < 10f) return // no margin to draw in
 
-        drawBreathButton(scope, touchState, lm, sh)
         drawJoystick(scope, touchState, lm, sh)
+        drawBreathButton(scope, touchState, rm, rm + scaleInfo.offsetX, sh)
         drawFireButton(scope, touchState, rm, rm + scaleInfo.offsetX, sh)
     }
 
-    private fun drawBreathButton(scope: DrawScope, ts: TouchInputState, marginEnd: Float, screenH: Float) {
-        val cx = marginEnd / 2f
-        val cy = screenH * 0.35f
-        val r = 132f.coerceAtMost(marginEnd / 2f - 4f)
+    private fun drawBreathButton(scope: DrawScope, ts: TouchInputState, rightStart: Float, screenW: Float, screenH: Float) {
+        val marginW = screenW - rightStart
+        if (marginW < 10f) return
+        val cx = rightStart + marginW / 2f
+        val cy = screenH * 0.50f
+        val r = 132f.coerceAtMost(marginW / 2f - 4f)
         val pressed = ts.breathPressed
 
         val fillAlpha = if (pressed) 0.75f else 0.40f
