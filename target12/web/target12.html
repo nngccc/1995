@@ -103,6 +103,13 @@ const BREATH_RECOVERY_TIME = 2000;
 const JOYSTICK_RADIUS = 180;
 const JOYSTICK_MAX_SPEED = 3;
 
+// Wind
+const WIND_MIN_INTERVAL = 5000;
+const WIND_MAX_INTERVAL = 30000;
+const WIND_GUST_MIN_DURATION = 3000;
+const WIND_GUST_MAX_DURATION = 15000;
+const WIND_GUST_FADE_TIME = 200;
+
 const TARGET_POSITIONS = [
     { x: 90, y: 80 },   { x: 240, y: 80 },  { x: 390, y: 80 },  { x: 540, y: 80 },
     { x: 170, y: 220 }, { x: 320, y: 220 },  { x: 470, y: 220 },
@@ -206,6 +213,16 @@ let breathDx = 0, breathDy = 0;
 let heartBPM = 60, heartBPMTarget = 60;
 let heartPhase = 0;
 let heartDy = 0;
+
+// Wind (session-level, initialized at game start)
+let baseWindStrength = 0;
+let baseWindAngle = 0;
+let nextGustTime = 0;
+let gustStartTime = null;
+let gustEndTime = null;
+let gustStrength = 0;
+let gustDirectionDelta = 0;
+let gustDuration = 0;
 
 // ECG
 let ecgBuffer = new Float32Array(200);
@@ -386,12 +403,24 @@ function fireShot() {
     if (gameState !== 'shooting') return;
     const sx = cx + driftOx + breathDx;
     const sy = cy + driftOy + breathDy;
-    shots.push({ x: sx, y: sy });
+
+    // Apply wind deflection
+    const deflection = calculateWindDeflection(sx, sy);
+    let finalX = sx + deflection.x;
+    let finalY = sy + deflection.y;
+
+    // Clamp to playfield boundaries
+    if (finalX >= RG) finalX = RG - 1;
+    if (finalX <= LG) finalX = LG + 1;
+    if (finalY >= OG) finalY = OG - 1;
+    if (finalY <= BG) finalY = BG + 1;
+
+    shots.push({ x: finalX, y: finalY });
     totalShots++;
-    if (isScoreShot(sx, sy)) scoringShots++;
+    if (isScoreShot(finalX, finalY)) scoringShots++;
     score = calculateScore();
     flashAlpha = 1.0;
-    flashX = sx; flashY = sy;
+    flashX = finalX; flashY = finalY;
     playFireSound();
     // Auto-release breath hold on fire
     if (breathHolding) {
@@ -419,6 +448,10 @@ function resetGame() {
     ecgWriteIdx = 0; ecgBeatPhase = 0; ecgLastSampleTime = 0;
     shots = []; scoringShots = 0; totalShots = 0; score = 0;
     flashAlpha = 0;
+    // Reset wind gust state (keep base wind for session)
+    nextGustTime = performance.now() + Math.random() * (WIND_MAX_INTERVAL - WIND_MIN_INTERVAL) + WIND_MIN_INTERVAL;
+    gustStartTime = null;
+    gustEndTime = null;
     gameState = 'shooting';
 }
 
@@ -898,6 +931,119 @@ function drawBreathBar() {
     }
 }
 
+function drawWindsock() {
+    const wx = 545, wy = 25, ww = 80, wh = 40;
+    const cx = wx, cy = wy;
+
+    // Background box
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(wx - ww / 2, wy - wh / 2, ww, wh);
+    ctx.strokeStyle = '#00a';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(wx - ww / 2, wy - wh / 2, ww, wh);
+
+    // Compass rose (light gray circle and marks)
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Cardinal marks (N, E, S, W)
+    const markLen = 6;
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 1;
+    // N (up)
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 12);
+    ctx.lineTo(cx, cy - 12 - markLen);
+    ctx.stroke();
+    // S (down)
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + 12);
+    ctx.lineTo(cx, cy + 12 + markLen);
+    ctx.stroke();
+    // E (right)
+    ctx.beginPath();
+    ctx.moveTo(cx + 12, cy);
+    ctx.lineTo(cx + 12 + markLen, cy);
+    ctx.stroke();
+    // W (left)
+    ctx.beginPath();
+    ctx.moveTo(cx - 12, cy);
+    ctx.lineTo(cx - 12 - markLen, cy);
+    ctx.stroke();
+
+    // Calculate effective wind (base + active gust)
+    let effectiveStrength = baseWindStrength;
+    let effectiveAngle = baseWindAngle;
+    if (gustStartTime !== null) {
+        const now = performance.now();
+        const gustElapsed = (now - gustStartTime) / 1000; // Convert to seconds
+        const gustProgress = Math.min(1, gustElapsed * 1000 / gustDuration);
+
+        // Apply easing for fade in/out
+        let gustMultiplier = 1.0;
+        if (gustProgress < WIND_GUST_FADE_TIME / gustDuration) {
+            const fade = (gustProgress * gustDuration) / WIND_GUST_FADE_TIME;
+            gustMultiplier = fade * fade * (3 - 2 * fade);
+        } else if (gustProgress > 1 - (WIND_GUST_FADE_TIME / gustDuration)) {
+            const fade = ((1 - gustProgress) * gustDuration) / WIND_GUST_FADE_TIME;
+            gustMultiplier = fade * fade * (3 - 2 * fade);
+        }
+
+        // Continuous strength oscillation (±30% variation @ 0.1 Hz)
+        const oscillation = Math.sin(gustElapsed * 2 * Math.PI * 0.1) * 0.3;
+        const instantGustStrength = gustStrength * (1 + oscillation);
+
+        effectiveStrength = baseWindStrength * (1 + (instantGustStrength - 1) * gustMultiplier);
+        effectiveAngle = baseWindAngle + gustDirectionDelta * gustMultiplier;
+    }
+
+    // Wind arrow (using effective wind angle and strength for length)
+    const baseArrowLen = 8;
+    const arrowLen = Math.min(50, baseArrowLen * effectiveStrength); // Scale with strength, max 50px
+    const angleRad = effectiveAngle * Math.PI / 180;
+    const arrowX = cx + arrowLen * Math.sin(angleRad);
+    const arrowY = cy - arrowLen * Math.cos(angleRad);
+
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(arrowX, arrowY);
+    ctx.stroke();
+
+    // Arrow head (scales with arrow length, uses same trig as arrow direction)
+    const headLen = Math.max(3, Math.min(8, arrowLen / 5));
+    const headAngle = Math.PI / 6;
+    ctx.beginPath();
+    ctx.moveTo(arrowX, arrowY);
+    ctx.lineTo(
+        arrowX - headLen * Math.sin(angleRad - headAngle),
+        arrowY + headLen * Math.cos(angleRad - headAngle)
+    );
+    ctx.moveTo(arrowX, arrowY);
+    ctx.lineTo(
+        arrowX - headLen * Math.sin(angleRad + headAngle),
+        arrowY + headLen * Math.cos(angleRad + headAngle)
+    );
+    ctx.stroke();
+
+    // Strength label above (using effective strength)
+    ctx.fillStyle = '#fff';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`WIND: ${Math.round(effectiveStrength * 10) / 10}`, cx, wy - wh / 2 - 5);
+
+    // Direction label below arrow (compass abbreviation, based on effective angle)
+    const dirNames = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+    const dirIndex = Math.round(effectiveAngle / 22.5) % 16;
+    ctx.fillStyle = '#fff';
+    ctx.font = '9px monospace';
+    ctx.fillText(dirNames[dirIndex], cx, wy + wh / 2 + 8);
+}
+
 function drawMuzzleFlash() {
     if (flashAlpha <= 0) return;
     const a = flashAlpha;
@@ -1035,6 +1181,73 @@ function updatePhysics(dt, now) {
     }
 }
 
+// ===== WIND GUST UPDATE =====
+function updateWindGust(now) {
+    // Check if it's time to start a new gust
+    if (now >= nextGustTime && gustStartTime === null) {
+        gustStartTime = now;
+        gustDuration = Math.random() * (WIND_GUST_MAX_DURATION - WIND_GUST_MIN_DURATION) + WIND_GUST_MIN_DURATION;
+        gustEndTime = gustStartTime + gustDuration;
+
+        // Gust amplitude based on base wind strength
+        if (baseWindStrength <= 3) {
+            gustStrength = Math.random() * (2.2 - 1.8) + 1.8; // 1.8-2.2x
+        } else if (baseWindStrength <= 6) {
+            gustStrength = Math.random() * (1.8 - 1.5) + 1.5; // 1.5-1.8x
+        } else {
+            gustStrength = Math.random() * (1.5 - 1.3) + 1.3; // 1.3-1.5x
+        }
+
+        // Direction variance ±15°
+        gustDirectionDelta = (Math.random() - 0.5) * 30;
+
+        // Schedule next gust
+        const delayToNextGust = Math.random() * (WIND_MAX_INTERVAL - WIND_MIN_INTERVAL) + WIND_MIN_INTERVAL;
+        nextGustTime = gustEndTime + delayToNextGust;
+    }
+
+    // Check if gust should end
+    if (gustStartTime !== null && now >= gustEndTime) {
+        gustStartTime = null;
+        gustEndTime = null;
+    }
+}
+
+// ===== WIND DEFLECTION =====
+function calculateWindDeflection(sx, sy) {
+    // Get effective wind (base + gust if active)
+    let effectiveStrength = baseWindStrength;
+    let effectiveAngle = baseWindAngle;
+
+    if (gustStartTime !== null) {
+        const gustElapsed = performance.now() - gustStartTime;
+        const gustProgress = Math.min(1, gustElapsed / gustDuration);
+
+        // Smooth easing: fade in first 200ms, fade out last 200ms
+        let gustMultiplier = 1.0;
+        if (gustProgress < WIND_GUST_FADE_TIME / gustDuration) {
+            const fade = (gustProgress * gustDuration) / WIND_GUST_FADE_TIME;
+            gustMultiplier = fade * fade * (3 - 2 * fade); // Cubic smoothstep
+        } else if (gustProgress > 1 - (WIND_GUST_FADE_TIME / gustDuration)) {
+            const fade = ((1 - gustProgress) * gustDuration) / WIND_GUST_FADE_TIME;
+            gustMultiplier = fade * fade * (3 - 2 * fade);
+        }
+
+        effectiveStrength = baseWindStrength * (1 + (gustStrength - 1) * gustMultiplier);
+        effectiveAngle = baseWindAngle + gustDirectionDelta * gustMultiplier;
+    }
+
+    // Calculate deflection based on distance from center
+    const dist = Math.sqrt((sx - 320) ** 2 + (sy - 220) ** 2);
+    const distanceFactor = 1 + (dist / 500);
+
+    const angleRad = effectiveAngle * Math.PI / 180;
+    const deflectionX = effectiveStrength * Math.sin(angleRad) * distanceFactor;
+    const deflectionY = -effectiveStrength * Math.cos(angleRad) * distanceFactor;
+
+    return { x: deflectionX, y: deflectionY };
+}
+
 // ===== RENDER =====
 function render(now) {
     ctx.clearRect(0, 0, W, H);
@@ -1049,6 +1262,7 @@ function render(now) {
         drawMuzzleFlash();
         drawECG();
         drawBreathBar();
+        drawWindsock();
         if (gameState === 'help') drawHelp();
     } else if (gameState === 'results') {
         drawScorecard();
@@ -1239,6 +1453,10 @@ function gameLoop(timestamp) {
         updatePhysics(dt, timestamp);
     }
 
+    if (gameState === 'shooting') {
+        updateWindGust(timestamp);
+    }
+
     // Input overlays: drift continues
     if (currentInputType && gameState === 'shooting') {
         // Physics already updated above when gameState is 'shooting'
@@ -1257,6 +1475,12 @@ function init() {
     introStartTime = performance.now();
     demoShots = [];
     demoShotsFired = [false, false, false];
+    // Initialize session wind
+    baseWindStrength = Math.floor(Math.random() * 10) + 1; // 1-10
+    baseWindAngle = Math.floor(Math.random() * 360); // 0-359
+    nextGustTime = performance.now() + Math.random() * (WIND_MAX_INTERVAL - WIND_MIN_INTERVAL) + WIND_MIN_INTERVAL;
+    gustStartTime = null;
+    gustEndTime = null;
     requestAnimationFrame(gameLoop);
 }
 

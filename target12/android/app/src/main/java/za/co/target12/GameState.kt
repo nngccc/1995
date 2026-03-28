@@ -49,6 +49,16 @@ class GameState {
     var breathRecovering = false
     var breathRecoverStart = 0L
 
+    // Wind (session-level, initialized at game start)
+    var baseWindStrength = 0f
+    var baseWindAngle = 0f
+    var nextGustTime = 0L
+    var gustStartTime: Long? = null
+    var gustEndTime: Long? = null
+    var gustStrength = 0f
+    var gustDirectionDelta = 0f
+    var gustDuration = 0L
+
     // ECG
     val ecgBuffer = FloatArray(GameConstants.ECG_BUFFER_SIZE)
     var ecgIndex = 0
@@ -102,5 +112,9 @@ class GameState {
         shots.clear()
         scoringShots = 0; totalShots = 0; score = 0
         flashAlpha = 0f
+        // Reset wind gust state (keep base wind for session)
+        nextGustTime = System.currentTimeMillis() + (Math.random() * (GameConstants.WIND_MAX_INTERVAL - GameConstants.WIND_MIN_INTERVAL)).toLong() + GameConstants.WIND_MIN_INTERVAL
+        gustStartTime = null
+        gustEndTime = null
     }
 }

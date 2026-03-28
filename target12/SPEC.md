@@ -424,6 +424,225 @@ Vertical mapping: `py = centerY − value × (h/2) × 0.85`
 
 ---
 
+## Wind System
+
+### Overview
+
+Wind adds a ballistic deflection challenge independent of the crosshair. The player's sight remains stable, but shots land offset from where aimed due to wind pressure. Wind direction and strength are persistent throughout a round.
+
+### Windsock UI
+
+**Position**: Top-right corner at (545, 25)
+
+**Appearance**:
+- **Background**: semi-transparent dark box, 80×40px, `rgba(0, 0, 0, 0.6)`, border `#00a` 1px
+- **Compass rose**: thin light gray (`#666`) circle at center with 4 cardinal marks (N/S/E/W labels)
+- **Wind arrow**: white (`#fff`) line, emanating from center, rotated to effective wind direction (0° = N/up, 90° = E/right, 180° = S/down, 270° = W/left)
+  - **Arrow length indicates wind strength**: `arrowLen = baseLen × effectiveStrength` where `baseLen = 8px`
+  - At base wind strength 1.0: arrow is 8px
+  - At base wind strength 10.0: arrow is 80px (clamped to max 50px to fit in box)
+  - During gust with oscillating multiplier: arrow extends/retracts continuously
+- **Direction label**: below arrow, white text, 9px monospace, compass abbreviation (N, NNE, NE, ENE, E, etc.) based on effective direction
+
+### Windsock Rendering Calculation
+
+**Critical**: The windsock displays the **effective wind** (base + active gust), NOT the base wind alone. This ensures the player sees exactly what forces are acting on their shots in real-time.
+
+**Calculation before rendering** (every frame during `shooting`):
+
+```
+if gust is active (gustStartTime != null):
+    gustElapsed = now - gustStartTime
+    gustProgress = min(1, gustElapsed / gustDuration)
+
+    // Apply same easing as deflection calculations
+    if gustProgress < FADE_TIME / gustDuration:
+        eased = (gustProgress × gustDuration / FADE_TIME)
+        gustMultiplier = eased² × (3 − 2×eased)
+    else if gustProgress > 1 − (FADE_TIME / gustDuration):
+        eased = ((1−gustProgress) × gustDuration / FADE_TIME)
+        gustMultiplier = eased² × (3 − 2×eased)
+    else:
+        gustMultiplier = 1.0
+
+    effectiveStrength = baseWindStrength × (1 + (gustStrength − 1) × gustMultiplier)
+    effectiveAngle = baseWindAngle + gustDirectionDelta × gustMultiplier
+else:
+    effectiveStrength = baseWindStrength
+    effectiveAngle = baseWindAngle
+```
+
+**Rendering**:
+- Arrow points to `effectiveAngle` (not `baseWindAngle`)
+- Arrow length scales with `effectiveStrength`: `arrowLen = 8 × effectiveStrength`
+  - Clamped to max 50px to fit within box
+  - At strength 1.0: 8px arrow
+  - At strength 5.0: 40px arrow
+  - At strength 10.0: 80px (clamped to 50px max)
+- **Arrow direction calculation** (compass-aligned):
+  - `arrowX = centerX + arrowLen × sin(angle_radians)`
+  - `arrowY = centerY - arrowLen × cos(angle_radians)`
+- **Arrow head** (two lines from arrow point, scaled with arrow):
+  - Head length: `headLen = max(3, min(8, arrowLen / 5))`
+  - Head angle: 30° (π/6 radians)
+  - **Critical**: Use same sine/cosine as arrow direction to maintain proper pointing:
+    - `headX1 = arrowX - headLen × sin(angle ± 30°)`
+    - `headY1 = arrowY + headLen × cos(angle ± 30°)`
+- Direction label shows compass abbreviation for `effectiveAngle`
+
+**Visual feedback**: As gusts begin and fade, players observe:
+- Arrow **rotates** as direction changes (±15° offset from base)
+- Arrow **extends/retracts** as strength increases/decreases during fade-in/fade-out
+- Both effects occur smoothly over 200ms easing curves
+This dual feedback (rotation + length) provides intuitive real-time indication of wind state matching the ballistic deflection players experience.
+
+**Real-time updates**: The windsock updates **every frame** during the `shooting` phase. Gust onset and decay are immediately visible, allowing skilled players to observe and compensate for wind changes.
+
+### Wind Generation
+
+**On session start** (when game loads):
+1. Generate random base wind **strength**: 1–10 (uniform distribution)
+2. Generate random base wind **direction**: 0–359° (uniform distribution)
+3. Store as `baseWindStrength` and `baseWindAngle`
+4. **These persist for the entire game session** — only change if player closes and reopens the app
+
+**On restart** (`[5]` key during game):
+- Keep the same base wind (do not regenerate)
+- Reset gust state (see below)
+
+### Wind Gusts
+
+During `shooting` state, wind gusts occur at random intervals, simulating realistic atmospheric turbulence.
+
+**Gust state variables**:
+- `nextGustTime`: timestamp when next gust should start (initialized at shooting state entry)
+- `gustStartTime`: when current gust began (null if no gust active)
+- `gustEndTime`: when current gust will end
+- `gustStrength`: peak strength multiplier during gust (1.4–2.5×)
+- `gustDirectionDelta`: direction shift during gust (±15°)
+
+**Gust generation algorithm** (executed once per frame during `shooting` phase):
+
+1. **Initialization** (at round start / shooting phase entry):
+   - `nextGustTime = now + random(5000, 30000)` (5–30 second delay to first gust)
+
+2. **Gust onset check** (each frame):
+   - If `now >= nextGustTime && gustStartTime == null`:
+     - `gustStartTime = now`
+     - `gustDuration = random(3000, 15000)` (3–15 seconds of active gust)
+     - **IMPORTANT**: `gustEndTime = gustStartTime + gustDuration` (calculated end timestamp)
+     - Select gust amplitude (peak multiplier) based on base wind strength:
+       ```
+       if baseWindStrength <= 3:
+           gustStrength = random(1.8, 2.2)  // Light wind, strong relative gusts
+       else if baseWindStrength <= 6:
+           gustStrength = random(1.5, 1.8)  // Medium wind, moderate gusts
+       else:
+           gustStrength = random(1.3, 1.5)  // Strong wind, smaller relative gusts
+       ```
+     - `gustDirectionDelta = random(−15, +15)` (direction shift in degrees)
+     - Schedule next gust: `nextGustTime = gustEndTime + random(5000, 30000)` (5–30s gap after this gust ends)
+
+3. **Gust easing** (if gust is active, applied to effective wind calculation):
+   - `gustElapsed = now − gustStartTime`
+   - `gustProgress = gustElapsed / gustDuration` (ranges 0.0 to 1.0+)
+   - Apply cubic smoothstep easing to strength multiplier:
+     - **Fade-in phase** (0.0 to 0.2 of duration): ramp from 0 to 1
+       - `easeProgress = gustProgress / 0.2` (0.0 to 1.0)
+       - `fade = easeProgress² × (3 − 2×easeProgress)` (cubic smoothstep)
+     - **Steady phase** (0.2 to 0.8 of duration): constant fade = 1.0
+     - **Fade-out phase** (0.8 to 1.0 of duration): ramp from 1 to 0
+       - `easeProgress = (1.0 − gustProgress) / 0.2` clamped to [0, 1]
+       - `fade = easeProgress² × (3 − 2×easeProgress)` (cubic smoothstep)
+   - **Effective gust multiplier**: `fade × (gustStrength − 1)` used in wind calculation below
+
+4. **Gust termination check** (each frame):
+   - If gust is active and `now >= gustEndTime`:
+     - `gustStartTime = null`, `gustEndTime = null` (clear active gust)
+     - Return to base wind (next frame will use gustStartTime == null in step 2)
+     - `nextGustTime` already scheduled in step 2, awaiting its trigger time
+
+**Effective wind during gust**:
+```
+if gustActive:
+    // Continuous strength oscillation (realistic wind variation)
+    gustElapsed = now − gustStartTime (in seconds)
+    oscillation = sin(gustElapsed × 2π × 0.1) × 0.3  // ±30% variation @ 0.1 Hz
+    instantGustStrength = gustStrength × (1 + oscillation)
+
+    effectiveStrength = baseWindStrength × (1 + (instantGustStrength − 1) × gustMultiplier)
+    effectiveAngle = baseWindAngle + gustDirectionDelta × gustMultiplier
+else:
+    effectiveStrength = baseWindStrength
+    effectiveAngle = baseWindAngle
+```
+
+Where `gustMultiplier` is the eased fade value (0.0 to 1.0) applied to both strength and direction.
+
+**Gust strength variation**: During active gust, the instantaneous strength oscillates ±30% around the gust target strength (e.g., if `gustStrength = 1.5`, it varies between 1.05 and 1.95). This creates natural "gusting" behavior where strength peaks and valleys occur throughout the gust period, making the wind feel realistically turbulent rather than uniformly strong for a fixed duration.
+
+### Ballistic Deflection
+
+When a shot is fired, its landing position is offset by wind deflection.
+
+**Deflection calculation** (per shot):
+
+```
+deflectionX = windStrength × sin(windAngle_radians) × distanceFactor
+deflectionY = −windStrength × cos(windAngle_radians) × distanceFactor
+```
+
+**Where**:
+- `windAngle_radians = windAngle × (π / 180)`
+- `sin()` / `cos()` give the wind vector (0 at 0°/180°, ±1 at 90°/270°)
+- `distanceFactor = 1 + (max(|cx−targetX|, |cy−targetY|) / 500)`
+  - At the center (320, 220): distanceFactor ≈ 1.0
+  - At board edges (~90px away): distanceFactor ≈ 1.18
+  - Maximum board distance ≈ 300px → distanceFactor ≈ 1.6
+  - This means shots closer to center experience less wind effect (more stable platform at practice target)
+
+**Application**:
+- Compute `sightX`, `sightY` normally (with drift, heartbeat, breathing)
+- **Before recording the shot**, add deflection:
+  ```
+  finalShotX = sightX + deflectionX
+  finalShotY = sightY + deflectionY
+  ```
+- Clamp final shot position to playfield boundaries (same as center point clamping)
+- Clamp applies **before** recording, so wind cannot push shots outside the board
+
+### Wind Effect Pattern (360° Clock)
+
+As wind direction rotates through a full circle, deflection varies sinusoidally:
+
+| Wind Direction | Horizontal Deflection | Vertical Deflection | Description |
+|----------------|----------------------|---------------------|-------------|
+| 0° (N) | 0 | −wind_strength | Headwind (no side effect) |
+| 45° (NE) | +0.707×strength | −0.707×strength | Northeast corner |
+| 90° (E) | +wind_strength | 0 | Full right deflection |
+| 135° (SE) | +0.707×strength | +0.707×strength | Southeast corner |
+| 180° (S) | 0 | +wind_strength | Tailwind (no side effect) |
+| 225° (SW) | −0.707×strength | +0.707×strength | Southwest corner |
+| 270° (W) | −wind_strength | 0 | Full left deflection |
+| 315° (NW) | −0.707×strength | −0.707×strength | Northwest corner |
+
+**Interpretation**:
+- **Headwind (0°)** and **Tailwind (180°)**: vertical shift only (upward/downward), no lateral push
+- **Crosswinds (90°/270°)**: maximum lateral deflection (left/right)
+- **Diagonal winds**: combination of lateral and vertical components
+
+### Crosshair Independence
+
+**Critical**: Wind does NOT move the crosshair. The sight remains subject to drift, heartbeat, and breathing only. Wind manifests **only** as the difference between where the player aims and where the bullet lands.
+
+This creates a key skill: players must visually estimate wind direction/strength and **aim off** to compensate, just like real shooting.
+
+### Wind and Stress
+
+Over-holding breath (breath stress > 0) does **not amplify wind effect**. Wind remains constant regardless of player state. This differentiates wind from drift (which increases under stress).
+
+---
+
 ## Scoring
 
 ### Algorithm (ported from Pascal `SCORE` procedure)

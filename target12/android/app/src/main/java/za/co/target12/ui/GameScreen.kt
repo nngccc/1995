@@ -19,6 +19,7 @@ import za.co.target12.input.TouchInputState
 import za.co.target12.physics.BreathingPhysics
 import za.co.target12.physics.DriftPhysics
 import za.co.target12.physics.HeartbeatPhysics
+import za.co.target12.physics.WindPhysics
 import za.co.target12.scoring.ScoringEngine
 import za.co.target12.ui.rendering.*
 import kotlin.math.sqrt
@@ -34,12 +35,24 @@ fun GameScreen() {
         CanvasScaler.computeScale(screenSize.width.toFloat(), screenSize.height.toFloat())
     }
 
-    // Intro timer
+    // Intro timer & wind initialization
     LaunchedEffect(state.phase) {
         if (state.phase == GamePhase.INTRO) {
             state.introStartTime = System.currentTimeMillis()
             state.demoShotsFired = 0
             state.demoShots.clear()
+            // Initialize session wind (only once, at first entry to INTRO)
+            if (state.baseWindStrength == 0f) {
+                state.baseWindStrength = (Math.random() * 10 + 1).toFloat()
+                state.baseWindAngle = (Math.random() * 360).toFloat()
+            }
+        }
+        if (state.phase == GamePhase.SHOOTING) {
+            // Initialize gust state for this round
+            val now = System.currentTimeMillis()
+            state.nextGustTime = now + (Math.random() * (GameConstants.WIND_MAX_INTERVAL - GameConstants.WIND_MIN_INTERVAL)).toLong() + GameConstants.WIND_MIN_INTERVAL
+            state.gustStartTime = null
+            state.gustEndTime = null
         }
     }
 
@@ -97,6 +110,7 @@ fun GameScreen() {
                         touchState.breathPressed = false
                     }
                     DriftPhysics.update(state)
+                    WindPhysics.updateWindGust(state, currentTimeMs)
 
                     // Flash decay
                     if (state.flashAlpha > 0f) {
@@ -260,6 +274,7 @@ fun GameScreen() {
                         MuzzleFlashRenderer.draw(this, state, scale, ox, oy)
                         EcgChartRenderer.draw(this, state, scale, ox, oy)
                         if (state.phase == GamePhase.SHOOTING) {
+                            WindsockRenderer.draw(this, state, scale, ox, oy)
                             TouchControlsRenderer.draw(this, touchState, scaleInfo)
                         }
                     }
@@ -301,16 +316,46 @@ private fun clampCenter(state: GameState) {
 
 private fun fireShot(state: GameState, currentTimeMs: Long, touchState: TouchInputState? = null) {
     if (state.phase != GamePhase.SHOOTING) return
-    state.flashX = state.sightX
-    state.flashY = state.sightY
+
+    // Apply wind deflection
+    val (deflectionX, deflectionY) = WindPhysics.calculateWindDeflection(state, state.sightX, state.sightY, currentTimeMs)
+    var finalX = state.sightX + deflectionX
+    var finalY = state.sightY + deflectionY
+
+    // Clamp to playfield boundaries
+    if (finalX >= GameConstants.RG) finalX = GameConstants.RG - 1f
+    if (finalX <= GameConstants.LG) finalX = GameConstants.LG + 1f
+    if (finalY >= GameConstants.OG) finalY = GameConstants.OG - 1f
+    if (finalY <= GameConstants.BG) finalY = GameConstants.BG + 1f
+
+    state.flashX = finalX
+    state.flashY = finalY
     state.flashAlpha = 1.0f
     GameAudio.playFireSound()
+
     // Auto-release breath hold on fire
     if (state.breathHolding) {
         BreathingPhysics.releaseHold(state, currentTimeMs)
         touchState?.releaseBreath()
     }
-    if (ScoringEngine.processShot(state)) {
+
+    // Process shot with wind-deflected position
+    val shot = Shot(finalX, finalY)
+    state.shots.add(shot)
+    state.totalShots++
+
+    // Determine nearest target
+    val nearestIdx = ScoringEngine.nearestTarget(shot)
+    if (nearestIdx != GameConstants.PRACTICE_INDEX) {
+        state.scoringShots++
+    }
+
+    // Recalculate score
+    state.score = ScoringEngine.computeScore(state)
+
+    // Check if round ended
+    if (state.scoringShots >= GameConstants.MAX_SCORING_SHOTS ||
+        state.totalShots >= GameConstants.MAX_TOTAL_SHOTS) {
         state.phase = GamePhase.RESULTS
     }
 }

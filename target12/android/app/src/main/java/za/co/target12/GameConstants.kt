@@ -101,4 +101,17 @@ object GameConstants {
     const val HELP_Y = 80f
     const val HELP_W = 380f
     const val HELP_H = 374f
+
+    // Wind
+    const val WIND_MIN_INTERVAL = 5000L
+    const val WIND_MAX_INTERVAL = 30000L
+    const val WIND_GUST_MIN_DURATION = 3000L
+    const val WIND_GUST_MAX_DURATION = 15000L
+    const val WIND_GUST_FADE_TIME = 200f
+
+    // Windsock UI
+    const val WINDSOCK_X = 545f
+    const val WINDSOCK_Y = 25f
+    const val WINDSOCK_W = 80f
+    const val WINDSOCK_H = 40f
 }

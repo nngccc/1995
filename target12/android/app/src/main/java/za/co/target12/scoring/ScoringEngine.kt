@@ -28,7 +28,7 @@ object ScoringEngine {
                 state.totalShots >= GameConstants.MAX_TOTAL_SHOTS
     }
 
-    private fun nearestTarget(shot: Shot): Int {
+    fun nearestTarget(shot: Shot): Int {
         var minDist = Float.MAX_VALUE
         var idx = 0
         for (i in 0 until GameConstants.TARGET_COUNT) {
@@ -40,7 +40,7 @@ object ScoringEngine {
         return idx
     }
 
-    private fun computeScore(state: GameState): Int {
+    fun computeScore(state: GameState): Int {
         var total = 0
         for (i in 0 until GameConstants.TARGET_COUNT) {
             if (i == GameConstants.PRACTICE_INDEX) continue
